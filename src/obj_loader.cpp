@@ -1,4 +1,4 @@
-#include "lumen/obj_loader.hpp"
+#include "kiln/obj_loader.hpp"
 
 #include <array>
 #include <cmath>
@@ -8,7 +8,7 @@
 #define TINYOBJLOADER_IMPLEMENTATION
 #include "tiny_obj_loader.h"
 
-namespace lumen {
+namespace kiln {
 
 namespace {
 
@@ -135,4 +135,4 @@ std::vector<std::shared_ptr<Triangle>> load_obj(const std::string& path,
     return triangles;
 }
 
-}  // namespace lumen
+}  // namespace kiln

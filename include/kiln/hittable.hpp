@@ -1,11 +1,11 @@
 #pragma once
 
-#include "lumen/aabb.hpp"
-#include "lumen/interval.hpp"
-#include "lumen/ray.hpp"
-#include "lumen/vec3.hpp"
+#include "kiln/aabb.hpp"
+#include "kiln/interval.hpp"
+#include "kiln/ray.hpp"
+#include "kiln/vec3.hpp"
 
-namespace lumen {
+namespace kiln {
 
 class Material;  // forward declaration: material.hpp includes this file
 
@@ -34,4 +34,4 @@ public:
     virtual AABB bounding_box() const = 0;
 };
 
-}  // namespace lumen
+}  // namespace kiln

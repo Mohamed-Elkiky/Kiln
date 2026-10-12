@@ -4,11 +4,11 @@
 #include <string>
 #include <vector>
 
-#include "lumen/material.hpp"
-#include "lumen/triangle.hpp"
-#include "lumen/vec3.hpp"
+#include "kiln/material.hpp"
+#include "kiln/triangle.hpp"
+#include "kiln/vec3.hpp"
 
-namespace lumen {
+namespace kiln {
 
 // Placement applied to every vertex on load, in this order: scale, rotate about Y, translate.
 // Lets a model built in any unit system be dropped into a scene without editing the file.
@@ -36,4 +36,4 @@ std::vector<std::shared_ptr<Triangle>> load_obj(const std::string& path,
                                                 const Transform& transform = {},
                                                 const ObjLoadOptions& options = {});
 
-}  // namespace lumen
+}  // namespace kiln

@@ -4,23 +4,23 @@
 #include <stdexcept>
 #include <string>
 
-#include "lumen/bvh.hpp"
-#include "lumen/camera.hpp"
-#include "lumen/hittable.hpp"
-#include "lumen/hittable_list.hpp"
-#include "lumen/image.hpp"
-#include "lumen/interval.hpp"
-#include "lumen/material.hpp"
-#include "lumen/obj_loader.hpp"
-#include "lumen/quad.hpp"
-#include "lumen/random.hpp"
-#include "lumen/ray.hpp"
-#include "lumen/sphere.hpp"
-#include "lumen/triangle.hpp"
-#include "lumen/vec3.hpp"
-#include "lumen/version.hpp"
+#include "kiln/bvh.hpp"
+#include "kiln/camera.hpp"
+#include "kiln/hittable.hpp"
+#include "kiln/hittable_list.hpp"
+#include "kiln/image.hpp"
+#include "kiln/interval.hpp"
+#include "kiln/material.hpp"
+#include "kiln/obj_loader.hpp"
+#include "kiln/quad.hpp"
+#include "kiln/random.hpp"
+#include "kiln/ray.hpp"
+#include "kiln/sphere.hpp"
+#include "kiln/triangle.hpp"
+#include "kiln/vec3.hpp"
+#include "kiln/version.hpp"
 
-using namespace lumen;
+using namespace kiln;
 
 Color ray_color(const Ray& r, int depth, const Hittable& world, const Color& background) {
     // Bounce limit reached: no more light gathered.
@@ -160,7 +160,7 @@ void triangles_scene(HittableList& world, CameraConfig& config, Color& backgroun
 }
 
 // ---------- Mesh scenes (Sprint 3) ----------
-// Models live in assets/models/ (not committed, see README). Run lumen from the repo root.
+// Models live in assets/models/ (not committed, see README). Run kiln from the repo root.
 
 // One model on a grey floor under a bright sky. Shared by the teapot, bunny and dragon scenes
 // so their render times are directly comparable.
@@ -225,7 +225,7 @@ void dragon_scene(HittableList& world, CameraConfig& config, Color& background) 
 }
 
 int main(int argc, char* argv[]) {
-    std::cout << "Lumen v" << kVersion << '\n';
+    std::cout << "Kiln v" << kVersion << '\n';
 
     // Flags (stopgap until the Sprint 4 CLI):
     //   --no-bvh     brute force, test every object (the "before" benchmark)
@@ -244,7 +244,7 @@ int main(int argc, char* argv[]) {
             out = argv[++a];
         } else {
             std::cerr << "Unknown option: " << arg
-                      << "\nUsage: lumen [--no-bvh] [--midpoint] [--out FILE]\n";
+                      << "\nUsage: kiln [--no-bvh] [--midpoint] [--out FILE]\n";
             return 1;
         }
     }

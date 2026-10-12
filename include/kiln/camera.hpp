@@ -1,9 +1,9 @@
 #pragma once
 
-#include "lumen/ray.hpp"
-#include "lumen/vec3.hpp"
+#include "kiln/ray.hpp"
+#include "kiln/vec3.hpp"
 
-namespace lumen {
+namespace kiln {
 
 struct CameraConfig {
     double aspect_ratio = 16.0 / 9.0;
@@ -44,4 +44,4 @@ private:
     Vec3 u_, v_, w_;  // camera basis: right, up, backwards
 };
 
-}  // namespace lumen
+}  // namespace kiln

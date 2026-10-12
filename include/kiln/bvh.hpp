@@ -4,10 +4,10 @@
 #include <memory>
 #include <vector>
 
-#include "lumen/aabb.hpp"
-#include "lumen/hittable.hpp"
+#include "kiln/aabb.hpp"
+#include "kiln/hittable.hpp"
 
-namespace lumen {
+namespace kiln {
 
 enum class BVHSplit {
     kMidpoint,  // split at the median centroid on the longest axis (fast build)
@@ -40,4 +40,4 @@ private:
     int axis_ = 0;                           // split axis, picks which child to visit first
 };
 
-}  // namespace lumen
+}  // namespace kiln

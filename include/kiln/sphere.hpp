@@ -4,10 +4,10 @@
 #include <cmath>
 #include <memory>
 
-#include "lumen/hittable.hpp"
-#include "lumen/material.hpp"
+#include "kiln/hittable.hpp"
+#include "kiln/material.hpp"
 
-namespace lumen {
+namespace kiln {
 
 class Sphere : public Hittable {
 public:
@@ -52,4 +52,4 @@ private:
     AABB bbox_;
 };
 
-}  // namespace lumen
+}  // namespace kiln

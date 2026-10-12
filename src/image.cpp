@@ -1,4 +1,4 @@
-#include "lumen/image.hpp"
+#include "kiln/image.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -6,7 +6,7 @@
 
 #include "stb_image_write.h"
 
-namespace lumen {
+namespace kiln {
 
 namespace {
 // Linear light -> gamma 2. Monitors expect gamma-encoded values; without this images look too dark.
@@ -32,4 +32,4 @@ bool Image::write_png(const std::string& path) const {
     return stbi_write_png(path.c_str(), width_, height_, 3, bytes.data(), width_ * 3) != 0;
 }
 
-}  // namespace lumen
+}  // namespace kiln

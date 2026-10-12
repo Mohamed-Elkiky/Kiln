@@ -3,9 +3,9 @@
 #include <string>
 #include <vector>
 
-#include "lumen/vec3.hpp"
+#include "kiln/vec3.hpp"
 
-namespace lumen {
+namespace kiln {
 
 // Framebuffer of linear colours, (0, 0) is top-left.
 class Image {
@@ -27,4 +27,4 @@ private:
     std::vector<Color> pixels_;
 };
 
-}  // namespace lumen
+}  // namespace kiln

@@ -1,11 +1,11 @@
-#include "lumen/camera.hpp"
+#include "kiln/camera.hpp"
 
 #include <algorithm>
 #include <cmath>
 
-#include "lumen/random.hpp"
+#include "kiln/random.hpp"
 
-namespace lumen {
+namespace kiln {
 
 namespace {
 constexpr double kPi = 3.1415926535897932385;
@@ -52,4 +52,4 @@ Ray Camera::get_ray(int i, int j) const {
     return {center_, pixel_sample - center_};
 }
 
-}  // namespace lumen
+}  // namespace kiln

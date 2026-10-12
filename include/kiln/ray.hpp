@@ -1,8 +1,8 @@
 #pragma once
 
-#include "lumen/vec3.hpp"
+#include "kiln/vec3.hpp"
 
-namespace lumen {
+namespace kiln {
 
 // P(t) = origin + t * direction
 class Ray {
@@ -21,4 +21,4 @@ private:
     Vec3 direction_;
 };
 
-}  // namespace lumen
+}  // namespace kiln

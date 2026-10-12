@@ -2,7 +2,7 @@
 
 #include <limits>
 
-namespace lumen {
+namespace kiln {
 
 inline constexpr double kInfinity = std::numeric_limits<double>::infinity();
 
@@ -26,4 +26,4 @@ struct Interval {
 inline constexpr Interval kEmptyInterval{+kInfinity, -kInfinity};
 inline constexpr Interval kUniverseInterval{-kInfinity, +kInfinity};
 
-}  // namespace lumen
+}  // namespace kiln

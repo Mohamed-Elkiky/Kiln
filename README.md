@@ -1,4 +1,4 @@
-# Lumen
+# Kiln
 
 **A physically based path tracer written from scratch in modern C++.**
 
@@ -32,7 +32,7 @@ No game engine, no graphics API. Every pixel is computed by simulating how light
 
 ## Progress
 
-Lumen is being built in public, one sprint at a time. Each render below was a milestone.
+Kiln is being built in public, one sprint at a time. Each render below was a milestone.
 
 | | | |
 |:---:|:---:|:---:|
@@ -67,17 +67,17 @@ Requires CMake 3.20+ and a C++17 compiler (MSVC, GCC or Clang).
 ```bash
 cmake -B build
 cmake --build build
-./build/lumen
+./build/kiln
 ```
 
 **Windows (PowerShell)**
 ```powershell
 cmake -B build
 cmake --build build --config Release
-.\build\Release\lumen.exe
+.\build\Release\kiln.exe
 ```
 
-The render is written to `output.png`. Run `lumen` from the repo root so it can find `assets/`. To change scenes, edit the scene picker in `main()` in `src/main.cpp`.
+The render is written to `output.png`. Run `kiln` from the repo root so it can find `assets/`. To change scenes, edit the scene picker in `main()` in `src/main.cpp`.
 
 Options:
 
@@ -129,14 +129,14 @@ Meshes are loaded as lists of triangles. Where a model has vertex normals, the n
 
 Every object knows its **axis-aligned bounding box**. The BVH groups objects into a binary tree of boxes, and a ray tests a box with the **slab method** before looking inside it.
 
-- **Build:** at each node, Lumen tries 15 candidate split planes per axis (16 bins) and picks the one with the lowest **Surface Area Heuristic** cost: `area(left) x count(left) + area(right) x count(right)`. A ray is likelier to hit a bigger box, so SAH keeps big boxes nearly empty. Leaves hold up to 4 primitives.
+- **Build:** at each node, Kiln tries 15 candidate split planes per axis (16 bins) and picks the one with the lowest **Surface Area Heuristic** cost: `area(left) x count(left) + area(right) x count(right)`. A ray is likelier to hit a bigger box, so SAH keeps big boxes nearly empty. Leaves hold up to 4 primitives.
 - **Traversal:** the ray visits the nearer child first. Once it hits something there, the far child is only searched up to that distance, so most of the far side's boxes are rejected straight away.
 
 ## Project structure
 
 ```
-lumen/
-├── include/lumen/   Headers: vec3, ray, camera, materials, shapes, obj loader, AABB, BVH
+kiln/
+├── include/kiln/   Headers: vec3, ray, camera, materials, shapes, obj loader, AABB, BVH
 ├── src/             Implementation and main
 ├── tests/           Unit tests
 │   └── data/        Small .obj fixtures for the loader tests

@@ -4,11 +4,11 @@
 #include <stdexcept>
 #include <string>
 
-#include "lumen/interval.hpp"
-#include "lumen/obj_loader.hpp"
-#include "lumen/ray.hpp"
+#include "kiln/interval.hpp"
+#include "kiln/obj_loader.hpp"
+#include "kiln/ray.hpp"
 
-using namespace lumen;
+using namespace kiln;
 
 namespace {
 
@@ -23,7 +23,7 @@ bool near(const Vec3& a, const Vec3& b, double eps = 1e-9) {
     return std::fabs(a.x - b.x) < eps && std::fabs(a.y - b.y) < eps && std::fabs(a.z - b.z) < eps;
 }
 
-const std::string kData = LUMEN_TEST_DATA_DIR;
+const std::string kData = KILN_TEST_DATA_DIR;
 
 }  // namespace
 

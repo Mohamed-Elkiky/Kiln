@@ -3,9 +3,9 @@
 #include <cstdint>
 #include <random>
 
-#include "lumen/vec3.hpp"
+#include "kiln/vec3.hpp"
 
-namespace lumen {
+namespace kiln {
 
 // One generator per thread: no locking, no data races when we go multithreaded.
 inline std::mt19937& rng() {
@@ -41,4 +41,4 @@ inline Vec3 random_unit_vector() {
     }
 }
 
-}  // namespace lumen
+}  // namespace kiln

@@ -2,11 +2,11 @@
 #include <cstdlib>
 #include <iostream>
 
-#include "lumen/interval.hpp"
-#include "lumen/ray.hpp"
-#include "lumen/triangle.hpp"
+#include "kiln/interval.hpp"
+#include "kiln/ray.hpp"
+#include "kiln/triangle.hpp"
 
-using namespace lumen;
+using namespace kiln;
 
 namespace {
 

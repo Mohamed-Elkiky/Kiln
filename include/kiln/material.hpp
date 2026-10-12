@@ -2,12 +2,12 @@
 
 #include <cmath>
 
-#include "lumen/hittable.hpp"
-#include "lumen/random.hpp"
-#include "lumen/ray.hpp"
-#include "lumen/vec3.hpp"
+#include "kiln/hittable.hpp"
+#include "kiln/random.hpp"
+#include "kiln/ray.hpp"
+#include "kiln/vec3.hpp"
 
-namespace lumen {
+namespace kiln {
 
 // Decides what happens to light when it hits a surface.
 class Material {
@@ -122,4 +122,4 @@ private:
     Color emit_;
 };
 
-}  // namespace lumen
+}  // namespace kiln

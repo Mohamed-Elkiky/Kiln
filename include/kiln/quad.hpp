@@ -3,10 +3,10 @@
 #include <cmath>
 #include <memory>
 
-#include "lumen/hittable.hpp"
-#include "lumen/material.hpp"
+#include "kiln/hittable.hpp"
+#include "kiln/material.hpp"
 
-namespace lumen {
+namespace kiln {
 
 // Flat parallelogram: corner Q, edges u and v. Walls, floors, light panels.
 class Quad : public Hittable {
@@ -60,4 +60,4 @@ private:
     AABB bbox_;
 };
 
-}  // namespace lumen
+}  // namespace kiln

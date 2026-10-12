@@ -3,10 +3,10 @@
 #include <cmath>
 #include <memory>
 
-#include "lumen/hittable.hpp"
-#include "lumen/material.hpp"
+#include "kiln/hittable.hpp"
+#include "kiln/material.hpp"
 
-namespace lumen {
+namespace kiln {
 
 // A single triangle. The building block of every 3D model.
 class Triangle : public Hittable {
@@ -74,4 +74,4 @@ private:
     AABB bbox_;
 };
 
-}  // namespace lumen
+}  // namespace kiln

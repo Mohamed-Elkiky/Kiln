@@ -4,16 +4,16 @@
 #include <memory>
 #include <vector>
 
-#include "lumen/aabb.hpp"
-#include "lumen/bvh.hpp"
-#include "lumen/hittable_list.hpp"
-#include "lumen/interval.hpp"
-#include "lumen/random.hpp"
-#include "lumen/ray.hpp"
-#include "lumen/sphere.hpp"
-#include "lumen/triangle.hpp"
+#include "kiln/aabb.hpp"
+#include "kiln/bvh.hpp"
+#include "kiln/hittable_list.hpp"
+#include "kiln/interval.hpp"
+#include "kiln/random.hpp"
+#include "kiln/ray.hpp"
+#include "kiln/sphere.hpp"
+#include "kiln/triangle.hpp"
 
-using namespace lumen;
+using namespace kiln;
 
 namespace {
 

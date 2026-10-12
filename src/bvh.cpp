@@ -1,10 +1,10 @@
-#include "lumen/bvh.hpp"
+#include "kiln/bvh.hpp"
 
 #include <algorithm>
 #include <array>
 #include <limits>
 
-namespace lumen {
+namespace kiln {
 
 namespace {
 
@@ -167,4 +167,4 @@ bool BVHNode::hit(const Ray& r, Interval ray_t, HitRecord& rec) const {
     return hit_near || hit_far;
 }
 
-}  // namespace lumen
+}  // namespace kiln

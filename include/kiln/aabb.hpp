@@ -3,11 +3,11 @@
 #include <algorithm>
 #include <utility>
 
-#include "lumen/interval.hpp"
-#include "lumen/ray.hpp"
-#include "lumen/vec3.hpp"
+#include "kiln/interval.hpp"
+#include "kiln/ray.hpp"
+#include "kiln/vec3.hpp"
 
-namespace lumen {
+namespace kiln {
 
 // Smallest interval containing both a and b.
 constexpr Interval enclose(const Interval& a, const Interval& b) {
@@ -82,4 +82,4 @@ private:
     }
 };
 
-}  // namespace lumen
+}  // namespace kiln

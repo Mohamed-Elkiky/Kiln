@@ -3,9 +3,9 @@
 #include <memory>
 #include <vector>
 
-#include "lumen/hittable.hpp"
+#include "kiln/hittable.hpp"
 
-namespace lumen {
+namespace kiln {
 
 // A scene: a list of objects. hit() returns the closest one along the ray.
 class HittableList : public Hittable {
@@ -45,4 +45,4 @@ private:
     AABB bbox_;
 };
 
-}  // namespace lumen
+}  // namespace kiln

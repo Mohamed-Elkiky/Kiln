@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.20)
 
-project(Lumen VERSION 0.1.0 LANGUAGES CXX)
+project(Kiln VERSION 0.1.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -12,7 +12,7 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
 endif()
 
-add_executable(lumen
+add_executable(kiln
   src/main.cpp
   src/bvh.cpp
   src/camera.cpp
@@ -23,17 +23,17 @@ add_executable(lumen
 # stb uses sprintf etc., silence MSVC's "unsafe function" warnings for that file only
 set_source_files_properties(src/stb_impl.cpp PROPERTIES COMPILE_DEFINITIONS _CRT_SECURE_NO_WARNINGS)
 
-target_include_directories(lumen PRIVATE ${PROJECT_SOURCE_DIR}/include)
+target_include_directories(kiln PRIVATE ${PROJECT_SOURCE_DIR}/include)
 # SYSTEM hides warnings from third-party headers
-target_include_directories(lumen SYSTEM PRIVATE ${PROJECT_SOURCE_DIR}/external)
+target_include_directories(kiln SYSTEM PRIVATE ${PROJECT_SOURCE_DIR}/external)
 
-target_compile_definitions(lumen PRIVATE
-  LUMEN_VERSION="${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}")
+target_compile_definitions(kiln PRIVATE
+  KILN_VERSION="${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}")
 
 if(MSVC)
-  target_compile_options(lumen PRIVATE /W4 /permissive- $<$<CONFIG:Release>:/O2>)
+  target_compile_options(kiln PRIVATE /W4 /permissive- $<$<CONFIG:Release>:/O2>)
 else()
-  target_compile_options(lumen PRIVATE -Wall -Wextra -Wpedantic $<$<CONFIG:Release>:-O3>)
+  target_compile_options(kiln PRIVATE -Wall -Wextra -Wpedantic $<$<CONFIG:Release>:-O3>)
 endif()
 
 # ---------- Tests ----------
@@ -51,7 +51,7 @@ add_executable(test_obj_loader tests/test_obj_loader.cpp src/obj_loader.cpp)
 target_include_directories(test_obj_loader PRIVATE ${PROJECT_SOURCE_DIR}/include)
 target_include_directories(test_obj_loader SYSTEM PRIVATE ${PROJECT_SOURCE_DIR}/external)
 target_compile_definitions(test_obj_loader PRIVATE
-  LUMEN_TEST_DATA_DIR="${PROJECT_SOURCE_DIR}/tests/data")
+  KILN_TEST_DATA_DIR="${PROJECT_SOURCE_DIR}/tests/data")
 add_test(NAME obj_loader COMMAND test_obj_loader)
 
 add_executable(test_bvh tests/test_bvh.cpp src/bvh.cpp)

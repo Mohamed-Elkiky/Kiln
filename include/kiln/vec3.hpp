@@ -3,7 +3,7 @@
 #include <cmath>
 #include <ostream>
 
-namespace lumen {
+namespace kiln {
 
 struct Vec3 {
     double x = 0.0;
@@ -94,4 +94,4 @@ inline std::ostream& operator<<(std::ostream& out, const Vec3& v) {
     return out << '(' << v.x << ", " << v.y << ", " << v.z << ')';
 }
 
-}  // namespace lumen
+}  // namespace kiln
