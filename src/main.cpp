@@ -15,53 +15,13 @@
 #include "kiln/quad.hpp"
 #include "kiln/random.hpp"
 #include "kiln/ray.hpp"
+#include "kiln/renderer.hpp"
 #include "kiln/sphere.hpp"
 #include "kiln/triangle.hpp"
 #include "kiln/vec3.hpp"
 #include "kiln/version.hpp"
 
 using namespace kiln;
-
-Color ray_color(const Ray& r, int depth, const Hittable& world, const Color& background) {
-    // Bounce limit reached: no more light gathered.
-    if (depth <= 0) return Color{0.0, 0.0, 0.0};
-
-    HitRecord rec;
-    // t_min = 0.001 stops a bounced ray re-hitting the surface it just left ("shadow acne").
-    if (!world.hit(r, Interval(0.001, kInfinity), rec)) return background;
-
-    // Light the surface gives off itself (only lights are non-black).
-    const Color emission = rec.mat->emitted();
-
-    Ray scattered;
-    Color attenuation;
-    // Lights don't scatter: just return their glow.
-    if (!rec.mat->scatter(r, rec, attenuation, scattered)) return emission;
-
-    return emission + attenuation * ray_color(scattered, depth - 1, world, background);
-}
-
-Color ray_color(const Ray& r, int depth, const Hittable& world) {
-    // Bounce limit reached: no more light gathered.
-    if (depth <= 0) return Color{0.0, 0.0, 0.0};
-
-    HitRecord rec;
-    // t_min = 0.001 stops a bounced ray re-hitting the surface it just left ("shadow acne").
-    if (world.hit(r, Interval(0.001, kInfinity), rec)) {
-        Ray scattered;
-        Color attenuation;
-        // The material decides where the light goes next and how much survives.
-        if (rec.mat->scatter(r, rec, attenuation, scattered)) {
-            return attenuation * ray_color(scattered, depth - 1, world);
-        }
-        return Color{0.0, 0.0, 0.0};  // absorbed
-    }
-
-    // Sky: blend white to blue based on how far up the ray points.
-    const Vec3 dir = unit_vector(r.direction());
-    const double a = 0.5 * (dir.y + 1.0);
-    return (1.0 - a) * Color{1.0, 1.0, 1.0} + a * Color{0.5, 0.7, 1.0};
-}
 
 // ---------- Scenes ----------
 
@@ -231,9 +191,11 @@ int main(int argc, char* argv[]) {
     //   --no-bvh     brute force, test every object (the "before" benchmark)
     //   --midpoint   median split instead of SAH
     //   --out FILE   output path (default output.png)
+    //   --threads N  worker threads (default: one per hardware thread)
     bool use_bvh = true;
     BVHSplit split = BVHSplit::kSAH;
     std::string out = "output.png";
+    RenderSettings settings;
     for (int a = 1; a < argc; ++a) {
         const std::string arg = argv[a];
         if (arg == "--no-bvh") {
@@ -242,15 +204,14 @@ int main(int argc, char* argv[]) {
             split = BVHSplit::kMidpoint;
         } else if (arg == "--out" && a + 1 < argc) {
             out = argv[++a];
+        } else if (arg == "--threads" && a + 1 < argc) {
+            settings.threads = std::stoi(argv[++a]);
         } else {
             std::cerr << "Unknown option: " << arg
-                      << "\nUsage: kiln [--no-bvh] [--midpoint] [--out FILE]\n";
+                      << "\nUsage: kiln [--no-bvh] [--midpoint] [--out FILE] [--threads N]\n";
             return 1;
         }
     }
-
-    // Fixed seed: the same scene always renders the same pixels, so renders can be diffed.
-    seed_rng(1337);
 
     HittableList world;
     CameraConfig config;
@@ -258,12 +219,12 @@ int main(int argc, char* argv[]) {
 
     // Pick which scene to render
     try {
-        //cornell_box(world, config, background);
+        cornell_box(world, config, background);
         //spheres_under_light(world, config, background);
         //triangles_scene(world, config, background);
         //teapot_scene(world, config, background);
         //bunny_scene(world, config, background);
-        dragon_scene(world, config, background);
+        //dragon_scene(world, config, background);
     } catch (const std::exception& e) {
         std::cerr << e.what() << '\n';
         return 1;
@@ -289,20 +250,10 @@ int main(int argc, char* argv[]) {
     Image image(camera.image_width(), camera.image_height());
 
     // Render
-    const auto start = std::chrono::steady_clock::now();
-
-    for (int j = 0; j < image.height(); ++j) {
-        std::clog << "\rScanlines remaining: " << (image.height() - j) << ' ' << std::flush;
-        for (int i = 0; i < image.width(); ++i) {
-            Color pixel_color{0.0, 0.0, 0.0};
-            for (int s = 0; s < camera.samples_per_pixel(); ++s) {
-                pixel_color += ray_color(camera.get_ray(i, j), camera.max_depth(), *scene, background);
-            }           
-            image.set(i, j, pixel_color / camera.samples_per_pixel());
-        }
-    }
-    std::clog << "\rDone.                    \n";
-
+    const int threads = resolve_thread_count(settings);
+    std::cout << "Rendering with " << threads << (threads == 1 ? " thread\n" : " threads\n");    const auto start = std::chrono::steady_clock::now();
+    render(camera, *scene, background, image, settings);
+    
     const auto end = std::chrono::steady_clock::now();
     const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
 
