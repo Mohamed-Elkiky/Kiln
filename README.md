@@ -25,6 +25,7 @@ No game engine, no graphics API. Every pixel is computed by simulating how light
   - Smooth shading from vertex normals, generated automatically for models that don't include them
 - **BVH acceleration** with binned Surface Area Heuristic (SAH) splits: 2,168x faster on the Stanford bunny, pixel-identical output
 - **Multithreaded tile rendering** with lock-free work distribution: 14.9x faster on 24 threads
+- **Benchmark harness** (`kiln_bench`): fixed scenes, median of 3 runs, Mrays/s, machine specs, Markdown report
 - **Positionable camera** with configurable field of view, look-at and up vector
 - **Antialiasing** via jittered supersampling
 - **Gamma correction** and PNG output
@@ -47,6 +48,26 @@ Kiln is being built in public, one sprint at a time. Each render below was a mil
 | Dragon, 250k triangles (BVH) | | |
 
 ## Performance
+
+Measured with `kiln_bench` on a Ryzen 9 7900X (12 cores / 24 threads), MSVC 19.44 Release, median of 3 runs. Full report in [docs/benchmarks.md](docs/benchmarks.md).
+
+| Scene | Size | Naive, 1T | BVH SAH, 1T | BVH SAH, 24T | Total speedup | Mrays/s (24T) |
+|---|---|---|---|---|---|---|
+| Sir Hops-a-Lot, the Stanford bunny | 69k tris | ~57m 24s | 1.44 s | **0.10 s** | **~33,000x** | 48.4 |
+| XYZ RGB dragon | 250k tris | ~9h 17m | 1.91 s | **0.13 s** | **~248,000x** | 37.7 |
+| Cornell box | 8 objects | 7.69 s | 9.19 s | **0.60 s** | 12.8x | 110.3 |
+
+`~` marks an estimate: brute force on a mesh is rendered at a reduced size and scaled up by sample count. As a check, a full brute-force bunny render took 3,703 s when timed directly, within 7% of the estimate.
+
+What the numbers show:
+
+- **The BVH turns an hour into 1.4 seconds.** Single-threaded, the bunny goes from ~57 minutes to 1.44 s (~2,400x). The dragon has 3.6x more triangles but takes only 1.3x as long: logarithmic scaling.
+- **SAH beats a median split** by 1.5x on the bunny and 1.65x on the dragon.
+- **Threads scale 14.4x to 15.3x on 24 threads.** There are 12 physical cores, so the extra comes from hyperthreads filling idle cycles.
+- **Small scenes don't need a BVH.** On the 8-object Cornell box, brute force is 1.2x faster because the box tests cost more than they save.
+- **Brute force hits a memory wall.** Per ray, naive is 9.5x slower on the dragon than the bunny, despite only 3.6x more triangles. The bunny's triangles likely fit in a CCD's 32 MB L3 cache and the dragon's don't, so every ray streams the whole mesh from RAM.
+
+Output is unchanged by any of this: renders are byte-for-byte identical on 1 or 24 threads.
 
 ### BVH (single thread)
 
