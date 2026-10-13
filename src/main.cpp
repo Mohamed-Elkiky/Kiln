@@ -9,12 +9,9 @@
 #include "kiln/hittable.hpp"
 #include "kiln/hittable_list.hpp"
 #include "kiln/image.hpp"
-#include "kiln/interval.hpp"
 #include "kiln/material.hpp"
 #include "kiln/obj_loader.hpp"
 #include "kiln/quad.hpp"
-#include "kiln/random.hpp"
-#include "kiln/ray.hpp"
 #include "kiln/renderer.hpp"
 #include "kiln/sphere.hpp"
 #include "kiln/triangle.hpp"
@@ -63,11 +60,12 @@ void cornell_box(HittableList& world, CameraConfig& config, Color& background) {
     auto mirror = std::make_shared<Metal>(Color{0.8, 0.85, 0.88}, 0.0);
 
     // Room: 555 units on each side. Camera looks down +z, so x = 555 is on the left.
-    world.add(std::make_shared<Quad>(Point3{555, 0, 0}, Vec3{0, 555, 0}, Vec3{0, 0, 555}, red));    // left
-    world.add(std::make_shared<Quad>(Point3{0, 0, 0}, Vec3{0, 555, 0}, Vec3{0, 0, 555}, green));    // right
-    world.add(std::make_shared<Quad>(Point3{0, 0, 0}, Vec3{555, 0, 0}, Vec3{0, 0, 555}, white));    // floor
-    world.add(std::make_shared<Quad>(Point3{555, 555, 555}, Vec3{-555, 0, 0}, Vec3{0, 0, -555}, white));  // ceiling
-    world.add(std::make_shared<Quad>(Point3{0, 0, 555}, Vec3{555, 0, 0}, Vec3{0, 555, 0}, white));  // back
+    const Vec3 x555{555, 0, 0}, y555{0, 555, 0}, z555{0, 0, 555};
+    world.add(std::make_shared<Quad>(Point3{555, 0, 0}, y555, z555, red));          // left
+    world.add(std::make_shared<Quad>(Point3{0, 0, 0}, y555, z555, green));          // right
+    world.add(std::make_shared<Quad>(Point3{0, 0, 0}, x555, z555, white));          // floor
+    world.add(std::make_shared<Quad>(Point3{555, 555, 555}, -x555, -z555, white));  // ceiling
+    world.add(std::make_shared<Quad>(Point3{0, 0, 555}, x555, y555, white));        // back
 
     // Light panel, just below the ceiling
     world.add(std::make_shared<Quad>(Point3{343, 554, 332}, Vec3{-130, 0, 0}, Vec3{0, 0, -105}, light));
@@ -86,6 +84,7 @@ void cornell_box(HittableList& world, CameraConfig& config, Color& background) {
 
     background = Color{0.0, 0.0, 0.0};
 }
+
 // A single triangle and a tetrahedron built from 4 triangles. Sprint 3 geometry test.
 void triangles_scene(HittableList& world, CameraConfig& config, Color& background) {
     auto ground = std::make_shared<Lambertian>(Color{0.5, 0.5, 0.5});
@@ -251,9 +250,10 @@ int main(int argc, char* argv[]) {
 
     // Render
     const int threads = resolve_thread_count(settings);
-    std::cout << "Rendering with " << threads << (threads == 1 ? " thread\n" : " threads\n");    const auto start = std::chrono::steady_clock::now();
+    std::cout << "Rendering with " << threads << (threads == 1 ? " thread\n" : " threads\n");
+
+    const auto start = std::chrono::steady_clock::now();
     render(camera, *scene, background, image, settings);
-    
     const auto end = std::chrono::steady_clock::now();
     const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
 

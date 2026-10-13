@@ -66,7 +66,6 @@ void render(const Camera& camera, const Hittable& world, const Color& background
     const int tiles_y = (height + tile - 1) / tile;
     const int tile_count = tiles_x * tiles_y;
 
-// after
     std::atomic<int> next_tile{0};
     std::atomic<int> tiles_done{0};
 
@@ -112,7 +111,6 @@ void render(const Camera& camera, const Hittable& world, const Color& background
     pool.reserve(static_cast<std::size_t>(thread_count));
     for (int n = 0; n < thread_count; ++n) pool.emplace_back(worker);
 
-    // Main thread only reports progress; the workers do all the rendering.
     // Main thread only reports progress; the workers do all the rendering.
     // wait_for returns early the moment the last tile finishes, so timing isn't padded by a sleep.
     if (settings.show_progress) {

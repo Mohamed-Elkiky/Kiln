@@ -24,8 +24,9 @@ if(KILN_TSAN)
   add_link_options(-fsanitize=thread)
 endif()
 
-add_executable(kiln
-  src/main.cpp
+# ---------- Core library ----------
+# Everything except main(). Compiled once and linked into the app and every test.
+add_library(kiln_core STATIC
   src/bvh.cpp
   src/camera.cpp
   src/image.cpp
@@ -36,46 +37,43 @@ add_executable(kiln
 # stb uses sprintf etc., silence MSVC's "unsafe function" warnings for that file only
 set_source_files_properties(src/stb_impl.cpp PROPERTIES COMPILE_DEFINITIONS _CRT_SECURE_NO_WARNINGS)
 
-target_include_directories(kiln PRIVATE ${PROJECT_SOURCE_DIR}/include)
+target_include_directories(kiln_core PUBLIC ${PROJECT_SOURCE_DIR}/include)
 # SYSTEM hides warnings from third-party headers
-target_include_directories(kiln SYSTEM PRIVATE ${PROJECT_SOURCE_DIR}/external)
-
-target_link_libraries(kiln PRIVATE Threads::Threads)
-
-target_compile_definitions(kiln PRIVATE
+target_include_directories(kiln_core SYSTEM PUBLIC ${PROJECT_SOURCE_DIR}/external)
+target_link_libraries(kiln_core PUBLIC Threads::Threads)
+target_compile_definitions(kiln_core PUBLIC
   KILN_VERSION="${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}")
 
-if(MSVC)
-  target_compile_options(kiln PRIVATE /W4 /permissive- $<$<CONFIG:Release>:/O2>)
-else()
-  target_compile_options(kiln PRIVATE -Wall -Wextra -Wpedantic $<$<CONFIG:Release>:-O3>)
-endif()
+# Same warnings for every target we own
+function(kiln_warnings target)
+  if(MSVC)
+    target_compile_options(${target} PRIVATE /W4 /permissive- $<$<CONFIG:Release>:/O2>)
+  else()
+    target_compile_options(${target} PRIVATE -Wall -Wextra -Wpedantic $<$<CONFIG:Release>:-O3>)
+  endif()
+endfunction()
+kiln_warnings(kiln_core)
+
+# ---------- App ----------
+add_executable(kiln src/main.cpp)
+target_link_libraries(kiln PRIVATE kiln_core)
+kiln_warnings(kiln)
 
 # ---------- Tests ----------
 enable_testing()
 
-add_executable(test_vec3 tests/test_vec3.cpp)
-target_include_directories(test_vec3 PRIVATE ${PROJECT_SOURCE_DIR}/include)
-add_test(NAME vec3 COMMAND test_vec3)
+function(kiln_test name)
+  add_executable(test_${name} tests/test_${name}.cpp)
+  target_link_libraries(test_${name} PRIVATE kiln_core)
+  kiln_warnings(test_${name})
+  add_test(NAME ${name} COMMAND test_${name})
+endfunction()
 
-add_executable(test_triangle tests/test_triangle.cpp)
-target_include_directories(test_triangle PRIVATE ${PROJECT_SOURCE_DIR}/include)
-add_test(NAME triangle COMMAND test_triangle)
+kiln_test(vec3)
+kiln_test(triangle)
+kiln_test(obj_loader)
+kiln_test(bvh)
+kiln_test(renderer)
 
-add_executable(test_obj_loader tests/test_obj_loader.cpp src/obj_loader.cpp)
-target_include_directories(test_obj_loader PRIVATE ${PROJECT_SOURCE_DIR}/include)
-target_include_directories(test_obj_loader SYSTEM PRIVATE ${PROJECT_SOURCE_DIR}/external)
 target_compile_definitions(test_obj_loader PRIVATE
   KILN_TEST_DATA_DIR="${PROJECT_SOURCE_DIR}/tests/data")
-add_test(NAME obj_loader COMMAND test_obj_loader)
-
-add_executable(test_bvh tests/test_bvh.cpp src/bvh.cpp)
-target_include_directories(test_bvh PRIVATE ${PROJECT_SOURCE_DIR}/include)
-add_test(NAME bvh COMMAND test_bvh)
-
-add_executable(test_renderer tests/test_renderer.cpp src/renderer.cpp src/camera.cpp src/image.cpp
-  src/stb_impl.cpp)
-target_include_directories(test_renderer PRIVATE ${PROJECT_SOURCE_DIR}/include)
-target_include_directories(test_renderer SYSTEM PRIVATE ${PROJECT_SOURCE_DIR}/external)
-target_link_libraries(test_renderer PRIVATE Threads::Threads)
-add_test(NAME renderer COMMAND test_renderer)

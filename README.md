@@ -12,7 +12,7 @@ No game engine, no graphics API. Every pixel is computed by simulating how light
 
 ## Features
 
-- **Monte Carlo path tracing** with recursive bounces and Russian-roulette-free depth limiting
+- **Monte Carlo path tracing** with recursive bounces and a fixed bounce limit
 - **Materials**
   - Lambertian (matte)
   - Metal with adjustable roughness (fuzz)
