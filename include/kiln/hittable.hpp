@@ -11,7 +11,7 @@ class Material;  // forward declaration: material.hpp includes this file
 
 struct HitRecord {
     Point3 p;
-    Vec3 normal;  // always points against the incoming ray
+    Vec3 normal;                    // always points against the incoming ray
     const Material* mat = nullptr;  // non-owning: the object owns its material
     double t = 0.0;
     bool front_face = false;  // true if the ray hit the outside of the surface

@@ -32,6 +32,7 @@ add_library(kiln_core STATIC
   src/image.cpp
   src/obj_loader.cpp
   src/renderer.cpp
+  src/scenes.cpp
   src/stb_impl.cpp
 )
 # stb uses sprintf etc., silence MSVC's "unsafe function" warnings for that file only
@@ -58,6 +59,15 @@ kiln_warnings(kiln_core)
 add_executable(kiln src/main.cpp)
 target_link_libraries(kiln PRIVATE kiln_core)
 kiln_warnings(kiln)
+
+# ---------- Benchmark ----------
+# kiln_bench --out docs/benchmarks.md   (run from the repo root, Release build)
+add_executable(kiln_bench src/bench.cpp)
+target_link_libraries(kiln_bench PRIVATE kiln_core)
+kiln_warnings(kiln_bench)
+target_compile_definitions(kiln_bench PRIVATE
+  KILN_BUILD_CONFIG="$<CONFIG>"
+  KILN_CXX_FLAGS="${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_RELEASE}")
 
 # ---------- Tests ----------
 enable_testing()

@@ -10,7 +10,9 @@ namespace {
 
 int failures = 0;
 
-bool near(double a, double b, double eps = 1e-9) { return std::fabs(a - b) < eps; }
+bool near(double a, double b, double eps = 1e-9) {
+    return std::fabs(a - b) < eps;
+}
 
 bool near(const Vec3& a, const Vec3& b) {
     return near(a.x, b.x) && near(a.y, b.y) && near(a.z, b.z);

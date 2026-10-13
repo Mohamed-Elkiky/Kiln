@@ -9,7 +9,9 @@ namespace kiln {
 
 namespace {
 constexpr double kPi = 3.1415926535897932385;
-constexpr double degrees_to_radians(double degrees) { return degrees * kPi / 180.0; }
+constexpr double degrees_to_radians(double degrees) {
+    return degrees * kPi / 180.0;
+}
 }  // namespace
 
 Camera::Camera(const CameraConfig& config)

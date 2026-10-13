@@ -10,7 +10,9 @@ namespace kiln {
 
 namespace {
 // Linear light -> gamma 2. Monitors expect gamma-encoded values; without this images look too dark.
-double linear_to_gamma(double linear) { return linear > 0.0 ? std::sqrt(linear) : 0.0; }
+double linear_to_gamma(double linear) {
+    return linear > 0.0 ? std::sqrt(linear) : 0.0;
+}
 
 std::uint8_t to_byte(double component) {
     const double clamped = std::clamp(component, 0.0, 0.999);

@@ -17,7 +17,9 @@ Point3 centroid(const AABB& box) {
 
 }  // namespace
 
-BVHNode::BVHNode(Objects objects, BVHSplit split) { build(objects, 0, objects.size(), split); }
+BVHNode::BVHNode(Objects objects, BVHSplit split) {
+    build(objects, 0, objects.size(), split);
+}
 
 void BVHNode::build(Objects& objects, std::size_t start, std::size_t end, BVHSplit split) {
     for (std::size_t i = start; i < end; ++i) bbox_ = AABB(bbox_, objects[i]->bounding_box());
@@ -127,8 +129,7 @@ void BVHNode::build(Objects& objects, std::size_t start, std::size_t end, BVHSpl
             const double lo = cmin[axis];
             mid = std::partition(first, last, [&](const auto& obj) {
                 const Point3 c = centroid(obj->bounding_box());
-                return std::min(kSAHBins - 1, static_cast<int>((c[axis] - lo) * scale)) <=
-                       best_bin;
+                return std::min(kSAHBins - 1, static_cast<int>((c[axis] - lo) * scale)) <= best_bin;
             });
         }
     }

@@ -18,9 +18,11 @@ namespace kiln {
 
 namespace {
 
-Color ray_color(const Ray& r, int depth, const Hittable& world, const Color& background) {
+Color ray_color(const Ray& r, int depth, const Hittable& world, const Color& background,
+                std::uint64_t& rays) {
     // Bounce limit reached: no more light gathered.
     if (depth <= 0) return Color{0.0, 0.0, 0.0};
+    ++rays;
 
     HitRecord rec;
     // t_min = 0.001 stops a bounced ray re-hitting the surface it just left ("shadow acne").
@@ -34,7 +36,7 @@ Color ray_color(const Ray& r, int depth, const Hittable& world, const Color& bac
     // Lights don't scatter: just return their glow.
     if (!rec.mat->scatter(r, rec, attenuation, scattered)) return emission;
 
-    return emission + attenuation * ray_color(scattered, depth - 1, world, background);
+    return emission + attenuation * ray_color(scattered, depth - 1, world, background, rays);
 }
 
 // Spreads nearby tile indices across the whole 32-bit range, so neighbouring tiles
@@ -57,8 +59,8 @@ int resolve_thread_count(const RenderSettings& settings) {
     return std::max(1u, std::thread::hardware_concurrency());
 }
 
-void render(const Camera& camera, const Hittable& world, const Color& background, Image& image,
-            const RenderSettings& settings) {
+RenderStats render(const Camera& camera, const Hittable& world, const Color& background,
+                   Image& image, const RenderSettings& settings) {
     const int width = image.width();
     const int height = image.height();
     const int tile = std::max(1, settings.tile_size);
@@ -68,15 +70,20 @@ void render(const Camera& camera, const Hittable& world, const Color& background
 
     std::atomic<int> next_tile{0};
     std::atomic<int> tiles_done{0};
+    std::atomic<std::uint64_t> total_rays{0};
 
     // Lets the last worker wake the progress loop immediately instead of after its next sleep.
     std::mutex done_mutex;
     std::condition_variable done_cv;
 
     auto worker = [&]() {
+        std::uint64_t rays = 0;  // counted locally, added to the total once at the end
         while (true) {
             const int t = next_tile.fetch_add(1, std::memory_order_relaxed);
-            if (t >= tile_count) return;
+            if (t >= tile_count) {
+                total_rays.fetch_add(rays, std::memory_order_relaxed);
+                return;
+            }
 
             // Reseed this thread's RNG for this tile: the pixels depend only on the tile index,
             // never on which thread rendered it or in what order.
@@ -92,7 +99,7 @@ void render(const Camera& camera, const Hittable& world, const Color& background
                     Color pixel_color{0.0, 0.0, 0.0};
                     for (int s = 0; s < camera.samples_per_pixel(); ++s) {
                         pixel_color += ray_color(camera.get_ray(i, j), camera.max_depth(), world,
-                                                 background);
+                                                 background, rays);
                     }
                     // Each pixel belongs to exactly one tile, so threads never write the same
                     // element: no lock needed on the framebuffer.
@@ -117,17 +124,19 @@ void render(const Camera& camera, const Hittable& world, const Color& background
         std::unique_lock<std::mutex> lock(done_mutex);
         while (true) {
             const int done = tiles_done.load(std::memory_order_relaxed);
-            std::clog << "\rTiles: " << done << '/' << tile_count << " (" << (100 * done / tile_count)
-                      << "%)   " << std::flush;
+            std::clog << "\rTiles: " << done << '/' << tile_count << " ("
+                      << (100 * done / tile_count) << "%)   " << std::flush;
             if (done >= tile_count) break;
-            done_cv.wait_for(lock, std::chrono::milliseconds(100),
-                             [&] { return tiles_done.load(std::memory_order_relaxed) >= tile_count; });
+            done_cv.wait_for(lock, std::chrono::milliseconds(100), [&] {
+                return tiles_done.load(std::memory_order_relaxed) >= tile_count;
+            });
         }
         std::clog << "\rDone.                         \n";
     }
 
     // join() also makes every worker's pixel writes visible to this thread before we return.
     for (auto& t : pool) t.join();
+    return {total_rays.load()};
 }
 
 }  // namespace kiln

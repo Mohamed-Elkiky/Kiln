@@ -13,8 +13,11 @@ class Triangle : public Hittable {
 public:
     // Flat shading: one normal for the whole face.
     Triangle(const Point3& v0, const Point3& v1, const Point3& v2, std::shared_ptr<Material> mat)
-        : v0_(v0), e1_(v1 - v0), e2_(v2 - v0), mat_(std::move(mat)),
-          bbox_(AABB(v0, v1), AABB(v0, v2)) {            
+        : v0_(v0),
+          e1_(v1 - v0),
+          e2_(v2 - v0),
+          mat_(std::move(mat)),
+          bbox_(AABB(v0, v1), AABB(v0, v2)) {
         face_normal_ = unit_vector(cross(e1_, e2_));
     }
 
@@ -55,9 +58,9 @@ public:
         rec.mat = mat_.get();
 
         // Barycentric weights (1 - u - v, u, v) blend the vertex normals for smooth shading.
-        const Vec3 outward_normal =
-            has_vertex_normals_ ? unit_vector((1.0 - u - v) * n0_ + u * n1_ + v * n2_)
-                                : face_normal_;
+        const Vec3 outward_normal = has_vertex_normals_
+                                        ? unit_vector((1.0 - u - v) * n0_ + u * n1_ + v * n2_)
+                                        : face_normal_;
         rec.set_face_normal(r, outward_normal);
         return true;
     }

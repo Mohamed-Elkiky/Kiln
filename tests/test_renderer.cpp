@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <cstdlib>
 #include <iostream>
 #include <memory>
@@ -84,6 +85,22 @@ int main() {
     // A different tile size changes the seeding, but the image must still be complete.
     const Image big_tiles = render_with(camera, world, 4, 64);  // one tile covers everything
     check(big_tiles.width() == 61 && big_tiles.height() == 37, "tile larger than image works");
+
+    // Ray counting: at least one camera ray per sample, identical whatever the thread count.
+    {
+        Image a(camera.image_width(), camera.image_height());
+        Image b(camera.image_width(), camera.image_height());
+        RenderSettings s1;
+        s1.threads = 1;
+        s1.show_progress = false;
+        RenderSettings s4 = s1;
+        s4.threads = 4;
+        const RenderStats one_stats = render(camera, world, Color{0.7, 0.8, 1.0}, a, s1);
+        const RenderStats four_stats = render(camera, world, Color{0.7, 0.8, 1.0}, b, s4);
+        const std::uint64_t camera_rays = 61ull * 37ull * 8ull;
+        check(one_stats.rays >= camera_rays, "ray count includes every camera ray");
+        check(one_stats.rays == four_stats.rays, "ray count is the same on 1 and 4 threads");
+    }
 
     std::cout << (failures == 0 ? "All tests passed\n" : "Some tests FAILED\n");
     return failures == 0 ? EXIT_SUCCESS : EXIT_FAILURE;

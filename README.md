@@ -106,6 +106,11 @@ Run the tests with:
 ctest --test-dir build -C Release
 ```
 
+Run the benchmarks (Release build, from the repo root):
+```bash
+./build/kiln_bench --out docs/benchmarks.md
+```
+
 **ThreadSanitizer** (GCC or Clang only, MSVC has no TSan; on Windows use WSL):
 ```bash
 cmake -B build-tsan -DKILN_TSAN=ON
@@ -186,7 +191,7 @@ kiln/
   - [x] `.obj` mesh loading
   - [x] BVH acceleration (with SAH)
   - [x] Multithreading
-  - [ ] Benchmark harness
+  - [x] Benchmark harness
 - [ ] **Sprint 4:** Polish (JSON scene files, CLI, live preview window, denoising, CI)
 
 ## References

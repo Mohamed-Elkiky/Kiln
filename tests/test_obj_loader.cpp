@@ -53,14 +53,16 @@ int main() {
     t.scale = 2.0;
     t.rotate_y_degrees = 90.0;
     t.translate = Vec3{10.0, 0.0, 0.0};
-    check(near(t.apply_point(Point3{1, 0, 0}), Point3{10, 0, -2}), "transform order: scale, rotate, move");
+    check(near(t.apply_point(Point3{1, 0, 0}), Point3{10, 0, -2}),
+          "transform order: scale, rotate, move");
 
     const auto moved = load_obj(kData + "/flat_with_degenerate.obj", nullptr, t);
     const Ray from_side(Point3{20.0, 0.5, -0.5}, Vec3{-1, 0, 0});
     hit = !moved.empty() && moved[0]->hit(from_side, all, rec);
     check(hit, "transformed triangle is hit where expected");
     check(hit && std::fabs(rec.t - 10.0) < 1e-9, "transformed hit distance t = 10");
-    check(hit && rec.front_face && near(rec.normal, Vec3{1, 0, 0}), "face normal rotated with mesh");
+    check(hit && rec.front_face && near(rec.normal, Vec3{1, 0, 0}),
+          "face normal rotated with mesh");
 
     // ---------- Generated normals ----------
     ObjLoadOptions gen;

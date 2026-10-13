@@ -41,7 +41,7 @@ std::vector<std::shared_ptr<Triangle>> load_obj(const std::string& path,
                                                 const Transform& transform,
                                                 const ObjLoadOptions& options) {
     tinyobj::ObjReaderConfig config;
-    config.triangulate = true;   // quads and n-gons become triangles
+    config.triangulate = true;  // quads and n-gons become triangles
     config.vertex_color = false;
     config.mtl_search_path = "";  // materials come from the scene, not the .mtl
 
@@ -112,17 +112,17 @@ std::vector<std::shared_ptr<Triangle>> load_obj(const std::string& path,
                 continue;
             }
 
-            const bool file_normals = corner[0].normal_index >= 0 &&
-                                      corner[1].normal_index >= 0 && corner[2].normal_index >= 0;
+            const bool file_normals = corner[0].normal_index >= 0 && corner[1].normal_index >= 0 &&
+                                      corner[2].normal_index >= 0;
             if (file_normals) {
                 triangles.push_back(std::make_shared<Triangle>(
                     p0, p1, p2, normals[corner[0].normal_index], normals[corner[1].normal_index],
                     normals[corner[2].normal_index], material));
             } else if (generate) {
-                triangles.push_back(std::make_shared<Triangle>(
-                    p0, p1, p2, generated[corner[0].vertex_index],
-                    generated[corner[1].vertex_index], generated[corner[2].vertex_index],
-                    material));
+                triangles.push_back(
+                    std::make_shared<Triangle>(p0, p1, p2, generated[corner[0].vertex_index],
+                                               generated[corner[1].vertex_index],
+                                               generated[corner[2].vertex_index], material));
             } else {
                 triangles.push_back(std::make_shared<Triangle>(p0, p1, p2, material));
             }

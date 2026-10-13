@@ -31,7 +31,8 @@ public:
                  Ray& scattered) const override {
         Vec3 direction = rec.normal + random_unit_vector();
 
-        // Random vector almost exactly opposite the normal: direction ~ 0, which breaks later maths.
+        // Random vector almost exactly opposite the normal: direction ~ 0, which breaks later
+        // maths.
         if (direction.near_zero()) direction = rec.normal;
 
         scattered = Ray(rec.p, direction);

@@ -15,8 +15,8 @@ public:
         : Q_(Q), u_(u), v_(v), mat_(std::move(mat)) {
         const Vec3 n = cross(u_, v_);
         normal_ = unit_vector(n);
-        D_ = dot(normal_, Q_);    // plane equation: dot(normal, P) = D
-        w_ = n / dot(n, n);       // used to get planar coordinates
+        D_ = dot(normal_, Q_);  // plane equation: dot(normal, P) = D
+        w_ = n / dot(n, n);     // used to get planar coordinates
 
         // Box around all four corners (the two diagonals cover them).
         bbox_ = AABB(AABB(Q_, Q_ + u_ + v_), AABB(Q_ + u_, Q_ + v_));

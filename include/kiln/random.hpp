@@ -16,7 +16,9 @@ inline std::mt19937& rng() {
 
 // Reseed this thread's generator. A fixed seed makes renders repeatable, so two builds of the
 // same scene can be diffed pixel for pixel.
-inline void seed_rng(std::uint32_t seed) { rng().seed(seed); }
+inline void seed_rng(std::uint32_t seed) {
+    rng().seed(seed);
+}
 
 // Uniform in [0, 1)
 inline double random_double() {
@@ -25,9 +27,13 @@ inline double random_double() {
 }
 
 // Uniform in [min, max)
-inline double random_double(double min, double max) { return min + (max - min) * random_double(); }
+inline double random_double(double min, double max) {
+    return min + (max - min) * random_double();
+}
 
-inline Vec3 random_vec3() { return {random_double(), random_double(), random_double()}; }
+inline Vec3 random_vec3() {
+    return {random_double(), random_double(), random_double()};
+}
 
 inline Vec3 random_vec3(double min, double max) {
     return {random_double(min, max), random_double(min, max), random_double(min, max)};
