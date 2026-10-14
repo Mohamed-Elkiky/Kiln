@@ -224,6 +224,8 @@ kiln/
 - [The Cornell Box](https://www.graphics.cornell.edu/online/box/), Cornell University Program of Computer Graphics
 - [The Stanford 3D Scanning Repository](https://graphics.stanford.edu/data/3Dscanrep/) (bunny, dragon)
 
+
+- if you want to collab with me on this project or any other projects please email me at moh.elkiky@gmail.com
 ## Third-party code
 
 - [stb_image_write](https://github.com/nothings/stb) by Sean Barrett (public domain / MIT)
