@@ -1,0 +1,17 @@
+{
+  "camera": { "look_from": [0, 1.6, 5], "look_at": [0, 0.7, 0], "fov": 30 },
+  "settings": { "width": 400, "aspect_ratio": 1, "samples": 16, "depth": 10, "background": [0.7, 0.8, 1.0] },
+  "materials": {
+    "ground": { "type": "lambertian", "albedo": [0.5, 0.5, 0.5] },
+    "gold": { "type": "metal", "albedo": [0.8, 0.6, 0.2], "fuzz": 0.2 }
+  },
+  "objects": [
+    { "type": "sphere", "center": [0, -1000, 0], "radius": 1000, "material": "ground" },
+    {
+      "type": "mesh",
+      "file": "../assets/models/xyzrgb_dragon.obj",
+      "transform": { "scale": 0.011, "rotate_y": 30, "translate": [0, 0.46, 0] },
+      "material": "gold"
+    }
+  ]
+}

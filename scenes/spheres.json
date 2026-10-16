@@ -1,0 +1,20 @@
+{
+  "camera": { "look_from": [0, 0.5, 2], "look_at": [0, 0, -1], "fov": 45 },
+  "settings": { "width": 800, "aspect_ratio": [16, 9], "samples": 200, "depth": 50, "background": [0, 0, 0] },
+  "materials": {
+    "ground": { "type": "lambertian", "albedo": [0.8, 0.8, 0.0] },
+    "center": { "type": "lambertian", "albedo": [0.1, 0.2, 0.5] },
+    "glass":  { "type": "dielectric", "ior": 1.5 },
+    "bubble": { "type": "dielectric", "ior": 0.6666666666666666 },
+    "gold":   { "type": "metal", "albedo": [0.8, 0.6, 0.2], "fuzz": 0.3 },
+    "light":  { "type": "light", "emit": [4, 4, 4] }
+  },
+  "objects": [
+    { "type": "sphere", "center": [0, -100.5, -1], "radius": 100, "material": "ground" },
+    { "type": "sphere", "center": [0, 0, -1.2], "radius": 0.5, "material": "center" },
+    { "type": "sphere", "center": [-1, 0, -1], "radius": 0.5, "material": "glass" },
+    { "type": "sphere", "center": [-1, 0, -1], "radius": 0.4, "material": "bubble" },
+    { "type": "sphere", "center": [1, 0, -1], "radius": 0.5, "material": "gold" },
+    { "type": "quad", "corner": [-1.5, 1.5, -2], "u": [3, 0, 0], "v": [0, 0, 2], "material": "light" }
+  ]
+}

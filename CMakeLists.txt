@@ -32,7 +32,7 @@ add_library(kiln_core STATIC
   src/image.cpp
   src/obj_loader.cpp
   src/renderer.cpp
-  src/scenes.cpp
+  src/scene_loader.cpp
   src/stb_impl.cpp
 )
 # stb uses sprintf etc., silence MSVC's "unsafe function" warnings for that file only
@@ -84,6 +84,9 @@ kiln_test(triangle)
 kiln_test(obj_loader)
 kiln_test(bvh)
 kiln_test(renderer)
+kiln_test(scene_loader)
 
 target_compile_definitions(test_obj_loader PRIVATE
   KILN_TEST_DATA_DIR="${PROJECT_SOURCE_DIR}/tests/data")
+target_compile_definitions(test_scene_loader PRIVATE
+  KILN_SCENES_DIR="${PROJECT_SOURCE_DIR}/scenes")

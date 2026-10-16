@@ -34,7 +34,7 @@
 #include "kiln/hittable_list.hpp"
 #include "kiln/image.hpp"
 #include "kiln/renderer.hpp"
-#include "kiln/scenes.hpp"
+#include "kiln/scene_loader.hpp"
 #include "kiln/version.hpp"
 
 #ifndef KILN_BUILD_CONFIG
@@ -52,8 +52,8 @@ namespace {
 
 struct SceneSpec {
     const char* name;
-    SceneBuilder build;
-    int width;  // image width; height comes from the scene's aspect ratio
+    const char* path;  // scene file, relative to the repo root
+    int width;         // image width; height comes from the scene's aspect ratio
     int spp;
     // Brute force on a mesh takes hours, so naive mesh runs render a smaller, 1 spp image and
     // the time is scaled up by the camera sample count. Mrays/s is measured, not scaled.
@@ -62,10 +62,10 @@ struct SceneSpec {
 };
 
 const std::vector<SceneSpec> kScenes = {
-    {"Spheres", spheres_under_light, 400, 64, 400, 64},
-    {"Cornell box", cornell_box, 400, 64, 400, 64},
-    {"Bunny", bunny_scene, 400, 16, 200, 1},
-    {"Dragon", dragon_scene, 400, 16, 100, 1},
+    {"Spheres", "scenes/spheres.json", 400, 64, 400, 64},
+    {"Cornell box", "scenes/cornell.json", 400, 64, 400, 64},
+    {"Bunny", "scenes/bunny.json", 400, 16, 200, 1},
+    {"Dragon", "scenes/dragon.json", 400, 16, 100, 1},
 };
 
 enum class Accel { kNone, kMidpoint, kSAH };
@@ -249,15 +249,17 @@ int main(int argc, char* argv[]) {
             if (lower.find(wanted) == std::string::npos) continue;
         }
 
-        HittableList world;
-        CameraConfig config;
-        Color background;
+        Scene loaded;
         try {
-            spec.build(world, config, background);
-        } catch (const std::exception& e) {
-            std::cerr << spec.name << ": " << e.what() << " (skipped)\n";
+            loaded = load_scene(spec.path);
+        } catch (const SceneError& e) {
+            std::cerr << e.what() << " (skipped)\n";
             continue;
         }
+        const HittableList& world = loaded.world;
+        const Color& background = loaded.background;
+        CameraConfig config = loaded.camera;
+        
         config.image_width = spec.width;
         config.samples_per_pixel = spec.spp;
 

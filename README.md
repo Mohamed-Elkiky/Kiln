@@ -1,40 +1,26 @@
 # Kiln
 
-**A physically based path tracer written from scratch in modern C++.**
+**A physically based path tracer written from scratch in modern C++17.**
 
 No game engine, no graphics API. Every pixel is computed by simulating how light bounces around a scene.
 
 ![Cornell box](renders/06-cornell-box.png)
 
-*Cornell box, 600x600, 500 samples per pixel. Note the red/green colour bleeding on the white surfaces and the caustic under the glass sphere.*
+*Cornell box, 600x600, 500 samples per pixel. Note the red/green colour bleeding and the caustic under the glass sphere.*
 
----
+## Highlights
 
-## Features
-
-- **Monte Carlo path tracing** with recursive bounces and a fixed bounce limit
-- **Materials**
-  - Lambertian (matte)
-  - Metal with adjustable roughness (fuzz)
-  - Dielectric (glass, water, diamond) with Snell's law, total internal reflection and Schlick's approximation
-  - Emissive area lights
-- **Geometry**
-  - Spheres and quads (parallelograms)
-  - Triangles with Möller-Trumbore intersection
-  - Wavefront `.obj` mesh loading with scale, rotate and translate on load
-  - Smooth shading from vertex normals, generated automatically for models that don't include them
-- **BVH acceleration** with binned Surface Area Heuristic (SAH) splits: 2,168x faster on the Stanford bunny, pixel-identical output
-- **Multithreaded tile rendering** with lock-free work distribution: 14.9x faster on 24 threads
-- **Benchmark harness** (`kiln_bench`): fixed scenes, median of 3 runs, Mrays/s, machine specs, Markdown report
-- **Positionable camera** with configurable field of view, look-at and up vector
-- **Antialiasing** via jittered supersampling
-- **Gamma correction** and PNG output
-- **Deterministic renders**: the same scene gives byte-identical output with or without the BVH, on any number of threads
-- **Unit tests** with CTest, plus a clean ThreadSanitizer run
+- **Monte Carlo path tracing** with matte, metal (with roughness), glass (Snell's law, total internal reflection, Schlick) and emissive area lights
+- **Triangle meshes** from `.obj` files, with Möller-Trumbore intersection and smooth shading from vertex normals (generated when a model has none)
+- **BVH with binned SAH splits**: the Stanford bunny goes from ~57 minutes to 1.44 s on one thread (~2,400x)
+- **Lock-free multithreaded tile renderer**: ~15x faster on 24 threads
+- **Deterministic**: byte-identical output on 1 or 24 threads, with or without the BVH
+- **JSON scene files and a real CLI**: change any render without recompiling, with errors that point at the exact field
+- **Benchmark harness**, unit tests with CTest and a clean ThreadSanitizer run
 
 ## Progress
 
-Kiln is being built in public, one sprint at a time. Each render below was a milestone.
+Built in public, one sprint at a time. Each render was a milestone.
 
 | | | |
 |:---:|:---:|:---:|
@@ -45,103 +31,62 @@ Kiln is being built in public, one sprint at a time. Each render below was a mil
 | ![](renders/07-triangles.png) | ![](renders/08-teapot.png) | ![](renders/09-bunny.png) |
 | Triangles | Utah teapot | Sir Hops-a-Lot (Stanford bunny) |
 | ![](renders/10-dragon.png) | | |
-| Dragon, 250k triangles (BVH) | | |
+| Dragon, 250k triangles | | |
 
 ## Performance
 
-Measured with `kiln_bench` on a Ryzen 9 7900X (12 cores / 24 threads), MSVC 19.44 Release, median of 3 runs. Full report in [docs/benchmarks.md](docs/benchmarks.md).
+`kiln_bench` on a Ryzen 9 7900X (12 cores / 24 threads), MSVC 19.44 Release, median of 3 runs. Full report in [docs/benchmarks.md](docs/benchmarks.md).
 
-| Scene | Size | Naive, 1T | BVH SAH, 1T | BVH SAH, 24T | Total speedup | Mrays/s (24T) |
-|---|---|---|---|---|---|---|
-| Sir Hops-a-Lot, the Stanford bunny | 69k tris | ~57m 24s | 1.44 s | **0.10 s** | **~33,000x** | 48.4 |
-| XYZ RGB dragon | 250k tris | ~9h 17m | 1.91 s | **0.13 s** | **~248,000x** | 37.7 |
-| Cornell box | 8 objects | 7.69 s | 9.19 s | **0.60 s** | 12.8x | 110.3 |
-
-`~` marks an estimate: brute force on a mesh is rendered at a reduced size and scaled up by sample count. As a check, a full brute-force bunny render took 3,703 s when timed directly, within 7% of the estimate.
-
-What the numbers show:
-
-- **The BVH turns an hour into 1.4 seconds.** Single-threaded, the bunny goes from ~57 minutes to 1.44 s (~2,400x). The dragon has 3.6x more triangles but takes only 1.3x as long: logarithmic scaling.
-- **SAH beats a median split** by 1.5x on the bunny and 1.65x on the dragon.
-- **Threads scale 14.4x to 15.3x on 24 threads.** There are 12 physical cores, so the extra comes from hyperthreads filling idle cycles.
-- **Small scenes don't need a BVH.** On the 8-object Cornell box, brute force is 1.2x faster because the box tests cost more than they save.
-- **Brute force hits a memory wall.** Per ray, naive is 9.5x slower on the dragon than the bunny, despite only 3.6x more triangles. The bunny's triangles likely fit in a CCD's 32 MB L3 cache and the dragon's don't, so every ray streams the whole mesh from RAM.
-
-Output is unchanged by any of this: renders are byte-for-byte identical on 1 or 24 threads.
-
-### BVH (single thread)
-
-| Scene | Resolution | Samples | Acceleration | Time |
-|---|---|---|---|---|
-| Sir Hops-a-Lot, the Stanford bunny (69k tris) | 400x400 | 16 | None | 3702.9 s |
-| Sir Hops-a-Lot, the Stanford bunny (69k tris) | 400x400 | 16 | BVH (midpoint) | 2.5 s |
-| Sir Hops-a-Lot, the Stanford bunny (69k tris) | 400x400 | 16 | BVH (SAH) | **1.7 s** |
-| XYZ RGB dragon (250k tris) | 400x400 | 16 | BVH (SAH) | 2.2 s |
-
-Without acceleration, every ray is tested against every triangle, so render time grows linearly with mesh size. The BVH takes the bunny from an hour to under 2 seconds: a **2,168x speedup**. The dragon has 3.6x more triangles than the bunny but takes only 1.3x as long, which is logarithmic scaling in action. SAH splits beat a simple median split by 1.45x.
-
-### Multithreading (BVH on)
-
-| Scene | Resolution | Samples | Threads | Time | Speedup |
+| Scene | Size | Naive, 1T | BVH SAH, 1T | BVH SAH, 24T | Total speedup |
 |---|---|---|---|---|---|
-| Cornell box | 600x600 | 500 | 1 | 163.7 s | 1x |
-| Cornell box | 600x600 | 500 | 24 | **11.0 s** | **14.9x** |
-| XYZ RGB dragon (250k tris) | 400x400 | 16 | 1 | 1.97 s | 1x |
-| XYZ RGB dragon (250k tris) | 400x400 | 16 | 24 | **0.14 s** | **14.1x** |
+| Stanford bunny | 69k tris | ~57m 24s | 1.44 s | **0.10 s** | **~33,000x** |
+| XYZ RGB dragon | 250k tris | ~9h 17m | 1.91 s | **0.13 s** | **~248,000x** |
+| Cornell box | 8 objects | 7.69 s | 9.19 s | **0.60 s** | 12.8x |
 
-Measured on 12 cores / 24 threads. Hyperthreads share a core's execution units, so speedup beyond 12x comes from filling idle cycles rather than doubling throughput.
+`~` is an estimate: brute force on a mesh is rendered smaller and scaled up. A full brute-force bunny render, timed directly, took 3,703 s, within 7% of the estimate.
 
-Output is unchanged: the 1-thread and 24-thread renders are byte-for-byte identical, and so are renders with and without the BVH. Full results are in [docs/benchmarks.md](docs/benchmarks.md).
+- **Logarithmic scaling.** The dragon has 3.6x more triangles than the bunny but takes only 1.3x as long.
+- **SAH beats a median split** by 1.5x on the bunny and 1.65x on the dragon.
+- **Threads scale 14.4x to 15.3x** on 24 threads. There are 12 physical cores; hyperthreads fill the idle cycles.
+- **Small scenes don't need a BVH.** On the 8-object Cornell box, brute force is 1.2x faster.
+- **Brute force hits a memory wall.** Per ray, naive is 9.5x slower on the dragon than the bunny despite only 3.6x more triangles. The bunny likely fits in the 32 MB L3 cache; the dragon doesn't.
 
 ## Build and run
 
 Requires CMake 3.20+ and a C++17 compiler (MSVC, GCC or Clang).
 
-**Linux / macOS**
 ```bash
 cmake -B build
-cmake --build build
-./build/kiln
-```
-
-**Windows (PowerShell)**
-```powershell
-cmake -B build
 cmake --build build --config Release
-.\build\Release\kiln.exe
+./build/kiln scenes/cornell.json -o cornell.png      # Windows: .\build\Release\kiln.exe
 ```
 
-The render is written to `output.png`. Run `kiln` from the repo root so it can find `assets/`. To change scenes, edit the scene picker in `main()` in `src/main.cpp`.
+Flags override the scene file:
 
-Options:
+```bash
+kiln scenes/bunny.json --samples 64 --width 800 -o bunny.png
+kiln scenes/dragon.json --benchmark --runs 5
+kiln --help
+```
 
 | Flag | Effect |
 |---|---|
-| `--threads N` | Render with `N` threads (default: one per hardware thread) |
-| `--no-bvh` | Test every object per ray (brute force, for benchmarking) |
-| `--midpoint` | Build the BVH with median splits instead of SAH |
-| `--out FILE` | Write the render to `FILE` instead of `output.png` |
+| `-o, --out FILE` | Output PNG (default `output.png`) |
+| `-s, --samples N` / `-d, --depth N` / `-w, --width W` | Samples per pixel, max bounces, image width |
+| `-t, --threads N` | Worker threads (default: all) |
+| `--seed N` | Random seed; same seed, same image |
+| `--no-bvh` / `--midpoint` | Brute force, or median-split BVH instead of SAH |
+| `--benchmark` | Time the render instead of saving it: median of `--runs` and Mrays/s |
 
-Run the tests with:
+**Tests and tools**
+
 ```bash
-ctest --test-dir build -C Release
+ctest --test-dir build -C Release                     # unit tests
+./build/kiln_bench --out docs/benchmarks.md           # benchmarks, from the repo root
+cmake -B build-tsan -DKILN_TSAN=ON && cmake --build build-tsan && ./build-tsan/test_renderer   # TSan (GCC/Clang)
 ```
 
-Run the benchmarks (Release build, from the repo root):
-```bash
-./build/kiln_bench --out docs/benchmarks.md
-```
-
-**ThreadSanitizer** (GCC or Clang only, MSVC has no TSan; on Windows use WSL):
-```bash
-cmake -B build-tsan -DKILN_TSAN=ON
-cmake --build build-tsan
-./build-tsan/test_renderer
-```
-
-### Models
-
-Mesh models are large, so they're not committed. Download them into `assets/models/`:
+**Models** are too large to commit. Download them into `assets/models/` (use `curl.exe` on Windows):
 
 ```bash
 mkdir -p assets/models
@@ -150,83 +95,89 @@ curl -L -o assets/models/stanford-bunny.obj https://raw.githubusercontent.com/al
 curl -L -o assets/models/xyzrgb_dragon.obj https://raw.githubusercontent.com/alecjacobson/common-3d-test-models/master/data/xyzrgb_dragon.obj
 ```
 
-On Windows PowerShell, use `curl.exe` instead of `curl`.
+## Scene files
 
-| File | Triangles | Use |
-|---|---|---|
-| `teapot.obj` | ~6.3k | Correctness check |
-| `stanford-bunny.obj` | ~69k | Benchmark scene (Sir Hops-a-Lot) |
-| `xyzrgb_dragon.obj` | ~250k | Stress test |
+Every showcase render is a JSON file in `scenes/`:
 
-The full 870k-triangle Stanford dragon is available as PLY from the [Stanford 3D Scanning Repository](https://graphics.stanford.edu/data/3Dscanrep/).
+```json
+{
+  "camera":   { "look_from": [278, 278, -800], "look_at": [278, 278, 0], "fov": 40 },
+  "settings": { "width": 600, "aspect_ratio": 1, "samples": 500, "depth": 50 },
+  "materials": {
+    "glass": { "type": "dielectric", "ior": 1.5 },
+    "white": { "type": "lambertian", "albedo": [0.73, 0.73, 0.73] }
+  },
+  "objects": [
+    { "type": "sphere", "center": [190, 90, 190], "radius": 90, "material": "glass" },
+    { "type": "box", "min": [265, 0, 295], "max": [430, 330, 460], "material": "white" }
+  ]
+}
+```
+
+- **Materials:** `lambertian`, `metal` (`fuzz`), `dielectric` (`ior`), `light` (`emit`)
+- **Objects:** `sphere`, `quad`, `triangle`, `box`, `mesh` (`file`, plus `transform`: `scale`, `rotate_y`, `translate`)
+- Mesh paths are relative to the scene file, and `//` comments are allowed.
+
+Mistakes name the exact field:
+
+```
+error: scenes/cornell.json: objects[6].material: unknown material 'glas' (defined: glass, green, light, mirror, red, white)
+```
 
 ## How it works
 
-1. The image is split into **32x32 tiles**, and a pool of worker threads (one per core) renders them in parallel.
-2. For each pixel, the **camera** fires many rays with random jitter (antialiasing).
-3. Each ray walks a **bounding volume hierarchy** (a tree of boxes) to find the **closest hit**. Any box the ray misses is skipped along with everything inside it, so only a handful of the scene's triangles are ever tested.
-4. The hit surface's **material** decides what happens next: scatter randomly (matte), reflect (metal), refract or reflect (glass), or emit light (lights).
-5. The ray **bounces** recursively, picking up colour from each surface, until it escapes the scene or hits the bounce limit.
-6. All samples for a pixel are **averaged**, gamma corrected and written to PNG.
+1. The image is split into **32x32 tiles**, rendered in parallel by a pool of worker threads.
+2. For each pixel, the **camera** fires many jittered rays (antialiasing).
+3. Each ray walks a **BVH** to find the closest hit, skipping any box it misses along with everything inside.
+4. The surface's **material** decides what happens next: scatter (matte), reflect (metal), refract or reflect (glass), or emit (lights).
+5. The ray **bounces** recursively, picking up colour, until it escapes or hits the bounce limit.
+6. Samples are **averaged**, gamma corrected and written to PNG.
 
-Because light paths are simulated physically, effects like soft shadows, colour bleeding and caustics appear naturally, without being programmed in.
+Soft shadows, colour bleeding and caustics all fall out of the physics without being programmed in.
 
-Meshes are loaded as lists of triangles. Where a model has vertex normals, the normal at each hit point is blended from the triangle's three corners using barycentric coordinates. This makes a faceted mesh render as a smooth surface.
+**BVH.** At each node, Kiln bins primitives into 16 buckets per axis and picks the split with the lowest Surface Area Heuristic cost, `area(L) x count(L) + area(R) x count(R)`. Big boxes are likelier to be hit, so SAH keeps them nearly empty. Traversal visits the nearer child first and clips the far child to the closest hit so far, so most far-side boxes are rejected immediately.
 
-### The BVH
-
-Every object knows its **axis-aligned bounding box**. The BVH groups objects into a binary tree of boxes, and a ray tests a box with the **slab method** before looking inside it.
-
-- **Build:** at each node, Kiln tries 15 candidate split planes per axis (16 bins) and picks the one with the lowest **Surface Area Heuristic** cost: `area(left) x count(left) + area(right) x count(right)`. A ray is likelier to hit a bigger box, so SAH keeps big boxes nearly empty. Leaves hold up to 4 primitives.
-- **Traversal:** the ray visits the nearer child first. Once it hits something there, the far child is only searched up to that distance, so most of the far side's boxes are rejected straight away.
-
-### Multithreading
-
-Every pixel is independent, so path tracing parallelises almost perfectly. The design choices are about keeping threads busy and never making them wait on each other.
-
-- **Tiles, not rows:** a 32x32 tile is a compact block, so neighbouring rays hit the same BVH nodes and triangles and the cache stays warm. Small tiles also spread the work evenly when one part of the image (glass, a dense mesh) is much slower than the rest.
-- **Lock-free work queue:** the queue is a single `std::atomic<int>`. Each thread calls `fetch_add` to claim the next tile, so no mutex is needed and fast threads simply take more tiles.
-- **No framebuffer locks:** each pixel belongs to exactly one tile, so threads never write the same memory.
-- **Per-thread RNG, per-tile seed:** each thread has its own `thread_local` random generator (sharing one would be a data race). It is reseeded from the tile number at the start of every tile, so a pixel's noise depends only on which tile it's in, not which thread rendered it. That's what makes multithreaded output byte-identical to single-threaded.
+**Multithreading.**
+- **Tiles, not rows:** compact tiles keep neighbouring rays on the same BVH nodes, so the cache stays warm, and they balance uneven work.
+- **Lock-free queue:** a single `std::atomic<int>`; each thread `fetch_add`s the next tile. No mutex.
+- **No framebuffer locks:** every pixel belongs to exactly one tile.
+- **Per-tile seeding:** each thread has a `thread_local` RNG, reseeded from the tile index. A pixel's noise depends on its tile, not its thread, which is what makes output byte-identical at any thread count.
 
 ## Project structure
 
 ```
 kiln/
-├── include/kiln/    Headers: vec3, ray, camera, materials, shapes, obj loader, AABB, BVH, renderer
-├── src/             Implementation, threaded renderer and main
-├── tests/           Unit tests
-│   └── data/        Small .obj fixtures for the loader tests
-├── external/        Third-party single-header libraries (stb_image_write, tinyobjloader)
-├── assets/models/   Downloaded .obj models (not committed, see Models)
-├── renders/         Milestone renders
-└── docs/            Documentation and benchmarks
+├── include/kiln/   Headers: maths, camera, materials, shapes, BVH, renderer, scene loader
+├── src/            Implementation, main and benchmark
+├── tests/          Unit tests and .obj fixtures
+├── scenes/         JSON scene files
+├── external/       Single-header libraries
+├── assets/models/  Downloaded models (not committed)
+├── renders/        Milestone renders
+└── docs/           Benchmarks
 ```
 
 ## Roadmap
 
 - [x] **Sprint 1:** Foundations (vectors, rays, camera, spheres, PNG output)
 - [x] **Sprint 2:** Materials and lighting (matte, metal, glass, area lights, Cornell box)
-- [ ] **Sprint 3:** Performance
-  - [x] Triangle primitive
-  - [x] `.obj` mesh loading
-  - [x] BVH acceleration (with SAH)
-  - [x] Multithreading
-  - [x] Benchmark harness
-- [ ] **Sprint 4:** Polish (JSON scene files, CLI, live preview window, denoising, CI)
+- [x] **Sprint 3:** Performance (triangles, `.obj` meshes, SAH BVH, multithreading, benchmarks)
+- [ ] **Sprint 4:** Polish
+  - [x] JSON scene files and CLI
+  - [ ] Live preview window
+  - [ ] Denoising
+  - [ ] CI
 
 ## References
 
-- Peter Shirley, Trevor David Black, Steve Hollasch: [*Ray Tracing in One Weekend* series](https://raytracing.github.io/)
-- Matt Pharr, Wenzel Jakob, Greg Humphreys: [*Physically Based Rendering*](https://pbr-book.org/)
-- Tomas Möller, Ben Trumbore: [*Fast, Minimum Storage Ray/Triangle Intersection*](https://www.graphics.cornell.edu/pubs/1997/MT97.pdf) (1997)
-- Ingo Wald: *On fast Construction of SAH-based Bounding Volume Hierarchies* (2007)
-- [The Cornell Box](https://www.graphics.cornell.edu/online/box/), Cornell University Program of Computer Graphics
-- [The Stanford 3D Scanning Repository](https://graphics.stanford.edu/data/3Dscanrep/) (bunny, dragon)
+- Shirley, Black, Hollasch: [*Ray Tracing in One Weekend* series](https://raytracing.github.io/)
+- Pharr, Jakob, Humphreys: [*Physically Based Rendering*](https://pbr-book.org/)
+- Möller, Trumbore: [*Fast, Minimum Storage Ray/Triangle Intersection*](https://www.graphics.cornell.edu/pubs/1997/MT97.pdf) (1997)
+- Wald: *On fast Construction of SAH-based Bounding Volume Hierarchies* (2007)
+- [The Cornell Box](https://www.graphics.cornell.edu/online/box/) and the [Stanford 3D Scanning Repository](https://graphics.stanford.edu/data/3Dscanrep/)
 
+**Third-party code:** [stb_image_write](https://github.com/nothings/stb) (public domain / MIT), [tinyobjloader](https://github.com/tinyobjloader/tinyobjloader) (MIT), [nlohmann/json](https://github.com/nlohmann/json) (MIT), [CLI11](https://github.com/CLIUtils/CLI11) (BSD-3-Clause)
 
-- if you want to collab with me on this project or any other projects please email me at moh.elkiky@gmail.com
-## Third-party code
+## Contact
 
-- [stb_image_write](https://github.com/nothings/stb) by Sean Barrett (public domain / MIT)
-- [tinyobjloader](https://github.com/tinyobjloader/tinyobjloader) by Syoyo Fujita and contributors (MIT)
+Want to collaborate on Kiln or something else? Email me at moh.elkiky@gmail.com.

@@ -1,97 +1,148 @@
+// kiln: render a JSON scene file to PNG.
+//
+//   kiln scenes/cornell.json -o cornell.png
+//   kiln scenes/bunny.json --samples 64 --width 800
+//   kiln scenes/dragon.json --benchmark --runs 5
+//   kiln --help
+
+#include <algorithm>
 #include <chrono>
+#include <cstdint>
+#include <iomanip>
 #include <iostream>
 #include <memory>
-#include <stdexcept>
 #include <string>
+#include <vector>
 
+#include "CLI11.hpp"
 #include "kiln/bvh.hpp"
 #include "kiln/camera.hpp"
 #include "kiln/hittable.hpp"
-#include "kiln/hittable_list.hpp"
 #include "kiln/image.hpp"
 #include "kiln/renderer.hpp"
-#include "kiln/scenes.hpp"
-#include "kiln/vec3.hpp"
+#include "kiln/scene_loader.hpp"
 #include "kiln/version.hpp"
 
 using namespace kiln;
 
 int main(int argc, char* argv[]) {
+    CLI::App app{"Kiln: a physically based path tracer. Renders a JSON scene file to PNG.", "kiln"};
+    app.set_version_flag("--version", std::string("Kiln v") + kVersion);
+    app.footer("Example: kiln scenes/cornell.json --samples 100 -o cornell.png");
+
+    std::string scene_path;
+    std::string out = "output.png";
+    int samples = 0;
+    int depth = 0;
+    int width = 0;
+    int runs = 3;
+    bool no_bvh = false;
+    bool midpoint = false;
+    bool benchmark = false;
+    RenderSettings settings;
+
+    app.add_option("scene", scene_path, "Scene file to render, e.g. scenes/cornell.json")
+        ->required()
+        ->check(CLI::ExistingFile);
+    CLI::Option* out_opt =
+        app.add_option("-o,--out", out, "Where to write the PNG")->capture_default_str();
+    CLI::Option* samples_opt =
+        app.add_option("-s,--samples", samples, "Samples per pixel (overrides the scene)")
+            ->check(CLI::Range(1, 1000000));
+    CLI::Option* depth_opt =
+        app.add_option("-d,--depth", depth, "Max bounces per ray (overrides the scene)")
+            ->check(CLI::Range(1, 10000));
+    CLI::Option* width_opt =
+        app.add_option("-w,--width", width,
+                       "Image width in pixels (overrides the scene, keeps its aspect ratio)")
+            ->check(CLI::Range(1, 16384));
+    app.add_option("-t,--threads", settings.threads, "Worker threads, 0 = one per hardware thread")
+        ->check(CLI::Range(0, 1024))
+        ->capture_default_str();
+    app.add_option("--seed", settings.seed, "Random seed: same seed and settings, same image")
+        ->capture_default_str();
+    CLI::Option* no_bvh_flag =
+        app.add_flag("--no-bvh", no_bvh, "Test every object per ray (brute force, for comparison)");
+    app.add_flag("--midpoint", midpoint, "Build the BVH with median splits instead of SAH")
+        ->excludes(no_bvh_flag);
+    CLI::Option* bench_flag = app.add_flag(
+        "--benchmark", benchmark, "Time the render instead of saving it: median time and Mrays/s");
+    app.add_option("--runs", runs, "Renders to time with --benchmark")
+        ->check(CLI::Range(1, 100))
+        ->needs(bench_flag)
+        ->capture_default_str();
+    bench_flag->excludes(out_opt);
+
+    CLI11_PARSE(app, argc, argv);
+
     std::cout << "Kiln v" << kVersion << '\n';
 
-    // Flags (stopgap until the Sprint 4 CLI):
-    //   --no-bvh     brute force, test every object (the "before" benchmark)
-    //   --midpoint   median split instead of SAH
-    //   --out FILE   output path (default output.png)
-    //   --threads N  worker threads (default: one per hardware thread)
-    bool use_bvh = true;
-    BVHSplit split = BVHSplit::kSAH;
-    std::string out = "output.png";
-    RenderSettings settings;
-    for (int a = 1; a < argc; ++a) {
-        const std::string arg = argv[a];
-        if (arg == "--no-bvh") {
-            use_bvh = false;
-        } else if (arg == "--midpoint") {
-            split = BVHSplit::kMidpoint;
-        } else if (arg == "--out" && a + 1 < argc) {
-            out = argv[++a];
-        } else if (arg == "--threads" && a + 1 < argc) {
-            settings.threads = std::stoi(argv[++a]);
-        } else {
-            std::cerr << "Unknown option: " << arg
-                      << "\nUsage: kiln [--no-bvh] [--midpoint] [--out FILE] [--threads N]\n";
-            return 1;
-        }
-    }
-
-    HittableList world;
-    CameraConfig config;
-    Color background;
-
-    // Pick which scene to render
+    Scene scene;
     try {
-        cornell_box(world, config, background);
-        // spheres_under_light(world, config, background);
-        // triangles_scene(world, config, background);
-        // teapot_scene(world, config, background);
-        // bunny_scene(world, config, background);
-        // dragon_scene(world, config, background);
-    } catch (const std::exception& e) {
-        std::cerr << e.what() << '\n';
+        scene = load_scene(scene_path);
+    } catch (const SceneError& e) {
+        std::cerr << "error: " << e.what() << '\n';
         return 1;
     }
 
+    // Command-line flags win over the scene file.
+    if (*samples_opt) scene.camera.samples_per_pixel = samples;
+    if (*depth_opt) scene.camera.max_depth = depth;
+    if (*width_opt) scene.camera.image_width = width;
+
     // Acceleration structure
-    const Hittable* scene = &world;
+    const Hittable* world = &scene.world;
     std::unique_ptr<BVHNode> bvh;
-    if (use_bvh) {
+    if (no_bvh) {
+        std::cout << "BVH disabled: testing every object per ray\n";
+    } else {
+        const BVHSplit split = midpoint ? BVHSplit::kMidpoint : BVHSplit::kSAH;
         const auto build_start = std::chrono::steady_clock::now();
-        bvh = std::make_unique<BVHNode>(world.objects(), split);
+        bvh = std::make_unique<BVHNode>(scene.world.objects(), split);
         const auto build_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
                                   std::chrono::steady_clock::now() - build_start)
                                   .count();
-        std::cout << "Built BVH (" << (split == BVHSplit::kSAH ? "SAH" : "midpoint") << ") over "
-                  << world.objects().size() << " objects in " << build_ms << " ms\n";
-        scene = bvh.get();
-    } else {
-        std::cout << "BVH disabled: testing every object per ray\n";
+        std::cout << "Built BVH (" << (midpoint ? "midpoint" : "SAH") << ") over "
+                  << scene.world.objects().size() << " objects in " << build_ms << " ms\n";
+        world = bvh.get();
     }
 
-    const Camera camera(config);
+    const Camera camera(scene.camera);
     Image image(camera.image_width(), camera.image_height());
-
-    // Render
     const int threads = resolve_thread_count(settings);
-    std::cout << "Rendering with " << threads << (threads == 1 ? " thread\n" : " threads\n");
+    std::cout << "Rendering " << camera.image_width() << "x" << camera.image_height() << " at "
+              << camera.samples_per_pixel() << " spp, depth " << camera.max_depth() << ", with "
+              << threads << (threads == 1 ? " thread\n" : " threads\n");
+
+    if (benchmark) {
+        settings.show_progress = false;
+        std::vector<double> times;
+        std::uint64_t rays = 0;
+        std::cout << std::fixed << std::setprecision(3);
+        for (int n = 0; n < runs; ++n) {
+            const auto start = std::chrono::steady_clock::now();
+            rays = render(camera, *world, scene.background, image, settings).rays;
+            const double seconds =
+                std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+            times.push_back(seconds);
+            std::cout << "Run " << (n + 1) << '/' << runs << ": " << seconds << " s\n";
+        }
+        std::sort(times.begin(), times.end());
+        const double median = times[times.size() / 2];
+        std::cout << "Median: " << median << " s, " << std::setprecision(1)
+                  << static_cast<double>(rays) / median / 1e6 << " Mrays/s (" << rays
+                  << " rays per render)\n";
+        return 0;
+    }
 
     const auto start = std::chrono::steady_clock::now();
-    render(camera, *scene, background, image, settings);
-    const auto end = std::chrono::steady_clock::now();
-    const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+    render(camera, *world, scene.background, image, settings);
+    const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                        std::chrono::steady_clock::now() - start)
+                        .count();
 
     if (!image.write_png(out)) {
-        std::cerr << "Failed to write " << out << '\n';
+        std::cerr << "error: failed to write " << out << '\n';
         return 1;
     }
     std::cout << "Rendered " << image.width() << "x" << image.height() << " in " << ms << " ms -> "
