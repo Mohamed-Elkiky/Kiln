@@ -4,8 +4,10 @@
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
+#include <initializer_list>
 #include <iostream>
 #include <mutex>
+#include <stdexcept>
 #include <thread>
 #include <vector>
 
@@ -17,6 +19,22 @@
 namespace kiln {
 
 namespace {
+
+// The denoiser's guide data for one camera ray: the first non-specular surface it reaches.
+struct FirstHit {
+    Color albedo{0.0, 0.0, 0.0};
+    Vec3 normal{0.0, 0.0, 0.0};
+    Color tint{1.0, 1.0, 1.0};  // product of the mirrors and glass passed through on the way
+
+    void record(const Color& surface_albedo, const Vec3& surface_normal) {
+        albedo = tint * surface_albedo;
+        normal = surface_normal;
+    }
+};
+
+Color clamp01(const Color& c) {
+    return {std::clamp(c.x, 0.0, 1.0), std::clamp(c.y, 0.0, 1.0), std::clamp(c.z, 0.0, 1.0)};
+}
 
 Color ray_color(const Ray& r, int depth, const Hittable& world, const Color& background,
                 std::uint64_t& rays) {
@@ -37,6 +55,40 @@ Color ray_color(const Ray& r, int depth, const Hittable& world, const Color& bac
     if (!rec.mat->scatter(r, rec, attenuation, scattered)) return emission;
 
     return emission + attenuation * ray_color(scattered, depth - 1, world, background, rays);
+}
+
+// Same maths as ray_color, but also records the denoiser guides. Glass and perfect mirrors show
+// what's behind them, so it follows the ray through them to the first rough surface, then hands
+// the rest of the path to plain ray_color. The beauty result is bit-identical either way.
+Color ray_color_guided(const Ray& r, int depth, const Hittable& world, const Color& background,
+                       std::uint64_t& rays, FirstHit& first) {
+    if (depth <= 0) return Color{0.0, 0.0, 0.0};
+    ++rays;
+
+    HitRecord rec;
+    if (!world.hit(r, Interval(0.001, kInfinity), rec)) {
+        first.record(clamp01(background), Vec3{0.0, 0.0, 0.0});
+        return background;
+    }
+
+    const bool specular = rec.mat->is_specular();
+    if (!specular) first.record(rec.mat->albedo(), rec.normal);
+
+    const Color emission = rec.mat->emitted();
+
+    Ray scattered;
+    Color attenuation;
+    if (!rec.mat->scatter(r, rec, attenuation, scattered)) {
+        if (specular) first.record(rec.mat->albedo(), rec.normal);  // a mirror absorbed the ray
+        return emission;
+    }
+
+    if (!specular) {
+        return emission + attenuation * ray_color(scattered, depth - 1, world, background, rays);
+    }
+    first.tint = first.tint * attenuation;
+    return emission +
+           attenuation * ray_color_guided(scattered, depth - 1, world, background, rays, first);
 }
 
 // Spreads nearby tile indices across the whole 32-bit range, so neighbouring tiles
@@ -60,9 +112,15 @@ int resolve_thread_count(const RenderSettings& settings) {
 }
 
 RenderStats render(const Camera& camera, const Hittable& world, const Color& background,
-                   Image& image, const RenderSettings& settings) {
+                   Image& image, const RenderSettings& settings, const RenderAovs& aovs) {
     const int width = image.width();
     const int height = image.height();
+    for (const Image* aov : {aovs.albedo, aovs.normal}) {
+        if (aov && (aov->width() != width || aov->height() != height)) {
+            throw std::invalid_argument("render: AOV images must be the same size as the image");
+        }
+    }
+    const bool want_aovs = aovs.albedo || aovs.normal;
     const int tile = std::max(1, settings.tile_size);
     const int tiles_x = (width + tile - 1) / tile;
     const int tiles_y = (height + tile - 1) / tile;
@@ -96,14 +154,31 @@ RenderStats render(const Camera& camera, const Hittable& world, const Color& bac
 
             for (int j = y0; j < y1; ++j) {
                 for (int i = x0; i < x1; ++i) {
+                                        const int spp = camera.samples_per_pixel();
                     Color pixel_color{0.0, 0.0, 0.0};
-                    for (int s = 0; s < camera.samples_per_pixel(); ++s) {
-                        pixel_color += ray_color(camera.get_ray(i, j), camera.max_depth(), world,
-                                                 background, rays);
+                    if (!want_aovs) {
+                        // Hot path: no guide bookkeeping at all.
+                        for (int s = 0; s < spp; ++s) {
+                            pixel_color += ray_color(camera.get_ray(i, j), camera.max_depth(),
+                                                     world, background, rays);
+                        }
+                    } else {
+                        Color albedo_sum{0.0, 0.0, 0.0};
+                        Vec3 normal_sum{0.0, 0.0, 0.0};
+                        for (int s = 0; s < spp; ++s) {
+                            FirstHit first;
+                            pixel_color +=
+                                ray_color_guided(camera.get_ray(i, j), camera.max_depth(), world,
+                                                 background, rays, first);
+                            albedo_sum += first.albedo;
+                            normal_sum += first.normal;
+                        }
+                        if (aovs.albedo) aovs.albedo->set(i, j, albedo_sum / spp);
+                        if (aovs.normal) aovs.normal->set(i, j, normal_sum / spp);
                     }
                     // Each pixel belongs to exactly one tile, so threads never write the same
                     // element: no lock needed on the framebuffer.
-                    image.set(i, j, pixel_color / camera.samples_per_pixel());
+                    image.set(i, j, pixel_color / spp);
                 }
             }
             if (tiles_done.fetch_add(1, std::memory_order_relaxed) + 1 == tile_count) {

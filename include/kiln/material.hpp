@@ -20,6 +20,13 @@ public:
 
     // Light given off by the surface. Black for everything except lights.
     virtual Color emitted() const { return Color{0.0, 0.0, 0.0}; }
+
+    // Surface colour in [0, 1], ignoring lighting. The denoiser uses it as a guide image.
+    virtual Color albedo() const = 0;
+
+    // Perfect mirrors and glass: they show what's behind them, so the denoiser's guides follow
+    // the ray through them instead of stopping here.
+    virtual bool is_specular() const { return false; }
 };
 
 // Matte: scatters light in random directions around the normal.
@@ -39,6 +46,8 @@ public:
         attenuation = albedo_;
         return true;
     }
+
+    Color albedo() const override { return albedo_; }
 
 private:
     Color albedo_;
@@ -60,6 +69,9 @@ public:
         // Fuzz can push the ray below the surface: absorb it instead.
         return dot(scattered.direction(), rec.normal) > 0.0;
     }
+
+    Color albedo() const override { return albedo_; }
+    bool is_specular() const override { return fuzz_ == 0.0; }
 
 private:
     Color albedo_;
@@ -96,6 +108,9 @@ public:
         return true;
     }
 
+    Color albedo() const override { return Color{1.0, 1.0, 1.0}; }
+    bool is_specular() const override { return true; }
+
 private:
     // Schlick's approximation: how much light reflects instead of refracting at this angle.
     static double reflectance(double cosine, double ri) {
@@ -119,6 +134,10 @@ public:
 
     Color emitted() const override { return emit_; }
 
+    // Lights are brighter than 1; the guide only needs the colour, clamped to [0, 1].
+    Color albedo() const override {
+        return {std::fmin(emit_.x, 1.0), std::fmin(emit_.y, 1.0), std::fmin(emit_.z, 1.0)};
+    }
 private:
     Color emit_;
 };

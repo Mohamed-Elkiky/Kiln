@@ -1,7 +1,9 @@
+#include <cmath>
 #include <cstdint>
 #include <cstdlib>
 #include <iostream>
 #include <memory>
+#include <stdexcept>
 
 #include "kiln/camera.hpp"
 #include "kiln/hittable_list.hpp"
@@ -100,6 +102,65 @@ int main() {
         const std::uint64_t camera_rays = 61ull * 37ull * 8ull;
         check(one_stats.rays >= camera_rays, "ray count includes every camera ray");
         check(one_stats.rays == four_stats.rays, "ray count is the same on 1 and 4 threads");
+    }
+
+    // ---------- Denoiser guides (AOVs) ----------
+    {
+        Image beauty(camera.image_width(), camera.image_height());
+        Image albedo(camera.image_width(), camera.image_height());
+        Image normal(camera.image_width(), camera.image_height());
+        RenderSettings s;
+        s.threads = 4;
+        s.tile_size = 8;
+        s.show_progress = false;
+        render(camera, world, Color{0.7, 0.8, 1.0}, beauty, s, {&albedo, &normal});
+        check(same_pixels(beauty, four), "filling AOVs leaves the beauty pass unchanged");
+
+        // Top-left corner looks at open sky: albedo is the background, normal is zero.
+        const Color& sky = albedo.get(0, 0);
+        const Color& sky_n = normal.get(0, 0);
+        check(std::fabs(sky.x - 0.7) < 1e-12 && std::fabs(sky.y - 0.8) < 1e-12 &&
+                  std::fabs(sky.z - 1.0) < 1e-12,
+              "sky albedo is the background");
+        check(sky_n.x == 0.0 && sky_n.y == 0.0 && sky_n.z == 0.0, "sky normal is zero");
+    }
+    {
+        // Camera inside a big matte sphere: every pixel sees the same albedo.
+        HittableList room;
+        room.add(std::make_shared<Sphere>(Point3{0, 0, 0}, 10.0,
+                                          std::make_shared<Lambertian>(Color{0.5, 0.25, 0.75})));
+        Image beauty(camera.image_width(), camera.image_height());
+        Image albedo(camera.image_width(), camera.image_height());
+        Image normal(camera.image_width(), camera.image_height());
+        RenderSettings s;
+        s.show_progress = false;
+        render(camera, room, Color{0, 0, 0}, beauty, s, {&albedo, &normal});
+        const Color& a = albedo.get(30, 18);
+        const Vec3& n = normal.get(30, 18);
+        check(std::fabs(a.x - 0.5) < 1e-12 && std::fabs(a.y - 0.25) < 1e-12 &&
+                  std::fabs(a.z - 0.75) < 1e-12,
+              "matte albedo is the material colour");
+        // Looking down -z from the centre: the wall ahead faces the camera, +z.
+        check(n.z > 0.99, "normal faces the camera");
+
+        // Glass in front of the sky: the guide sees through it to the sky, not white glass.
+        HittableList lens;
+        lens.add(
+            std::make_shared<Sphere>(Point3{0, 0, -3}, 2.0, std::make_shared<Dielectric>(1.5)));
+        render(camera, lens, Color{0.2, 0.4, 0.6}, beauty, s, {&albedo, nullptr});
+        const Color& g = albedo.get(30, 18);
+        check(std::fabs(g.x - 0.2) < 1e-9 && std::fabs(g.y - 0.4) < 1e-9 &&
+                  std::fabs(g.z - 0.6) < 1e-9,
+              "glass albedo shows what's behind it");
+
+        Image wrong(5, 5);
+        bool threw = false;
+        try {
+            render(camera, room, Color{0, 0, 0}, beauty, s, {&wrong, nullptr});
+        } catch (const std::invalid_argument&) {
+            threw = true;
+        }
+        check(threw, "AOV of the wrong size throws");
     }
 
     std::cout << (failures == 0 ? "All tests passed\n" : "Some tests FAILED\n");

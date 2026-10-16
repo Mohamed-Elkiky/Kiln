@@ -3,11 +3,13 @@
 //   kiln scenes/cornell.json -o cornell.png
 //   kiln scenes/bunny.json --samples 64 --width 800
 //   kiln scenes/dragon.json --benchmark --runs 5
+//   kiln scenes/cornell.json --samples 16 --denoise
 //   kiln --help
 
 #include <algorithm>
 #include <chrono>
 #include <cstdint>
+#include <exception>
 #include <iomanip>
 #include <iostream>
 #include <memory>
@@ -17,6 +19,7 @@
 #include "CLI11.hpp"
 #include "kiln/bvh.hpp"
 #include "kiln/camera.hpp"
+#include "kiln/denoise.hpp"
 #include "kiln/hittable.hpp"
 #include "kiln/image.hpp"
 #include "kiln/renderer.hpp"
@@ -39,6 +42,7 @@ int main(int argc, char* argv[]) {
     bool no_bvh = false;
     bool midpoint = false;
     bool benchmark = false;
+    bool denoise_flag = false;
     RenderSettings settings;
 
     app.add_option("scene", scene_path, "Scene file to render, e.g. scenes/cornell.json")
@@ -72,10 +76,18 @@ int main(int argc, char* argv[]) {
         ->needs(bench_flag)
         ->capture_default_str();
     bench_flag->excludes(out_opt);
+    app.add_flag("--denoise", denoise_flag,
+                 "Remove noise with Intel Open Image Denoise, so low sample counts look clean")
+        ->excludes(bench_flag);
 
     CLI11_PARSE(app, argc, argv);
 
     std::cout << "Kiln v" << kVersion << '\n';
+    if (denoise_flag && !denoise_available()) {
+        std::cerr << "error: --denoise needs a build with Intel Open Image Denoise "
+                     "(see README, Denoising)\n";
+        return 1;
+    }
 
     Scene scene;
     try {
@@ -135,11 +147,36 @@ int main(int argc, char* argv[]) {
         return 0;
     }
 
+        // The denoiser's albedo and normal guides are filled during the same render.
+    std::unique_ptr<Image> albedo;
+    std::unique_ptr<Image> normal;
+    RenderAovs aovs;
+    if (denoise_flag) {
+        albedo = std::make_unique<Image>(image.width(), image.height());
+        normal = std::make_unique<Image>(image.width(), image.height());
+        aovs = {albedo.get(), normal.get()};
+    }
+
     const auto start = std::chrono::steady_clock::now();
-    render(camera, *world, scene.background, image, settings);
+    render(camera, *world, scene.background, image, settings, aovs);
     const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
                         std::chrono::steady_clock::now() - start)
                         .count();
+
+    if (denoise_flag) {
+        const auto denoise_start = std::chrono::steady_clock::now();
+        try {
+            denoise(image, *albedo, *normal);
+        } catch (const std::exception& e) {
+            std::cerr << "error: " << e.what() << '\n';
+            return 1;
+        }
+        std::cout << "Denoised in "
+                  << std::chrono::duration_cast<std::chrono::milliseconds>(
+                         std::chrono::steady_clock::now() - denoise_start)
+                         .count()
+                  << " ms\n";
+    }
 
     if (!image.write_png(out)) {
         std::cerr << "error: failed to write " << out << '\n';

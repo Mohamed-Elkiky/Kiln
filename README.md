@@ -17,6 +17,7 @@ No game engine, no graphics API. Every pixel is computed by simulating how light
 - **Deterministic**: byte-identical output on 1 or 24 threads, with or without the BVH
 - **JSON scene files and a real CLI**: change any render without recompiling, with errors that point at the exact field
 - **Benchmark harness**, unit tests with CTest and a clean ThreadSanitizer run
+- **Neural denoising** with Intel Open Image Denoise: 16 samples per pixel looks close to 500 (`--denoise`)
 
 ## Progress
 
@@ -77,6 +78,7 @@ kiln --help
 | `--seed N` | Random seed; same seed, same image |
 | `--no-bvh` / `--midpoint` | Brute force, or median-split BVH instead of SAH |
 | `--benchmark` | Time the render instead of saving it: median of `--runs` and Mrays/s |
+| `--denoise` | Remove noise with Intel Open Image Denoise (see [Denoising](#denoising)) |
 
 **Tests and tools**
 
@@ -123,6 +125,25 @@ Mistakes name the exact field:
 ```
 error: scenes/cornell.json: objects[6].material: unknown material 'glas' (defined: glass, green, light, mirror, red, white)
 ```
+## Denoising
+
+`--denoise` runs [Intel Open Image Denoise](https://www.openimagedenoise.org/), a neural denoiser, on the finished render. During the same render, Kiln fills two guide images: the **albedo** (surface colour) and **normal** of the first rough surface each ray reaches, looking through glass and mirrors. They show the denoiser where real edges are, so it removes noise without blurring detail.
+
+| 16 spp | 16 spp + `--denoise` | 500 spp reference |
+|:---:|:---:|:---:|
+| ![](renders/11-denoise-noisy.png) | ![](renders/11-denoise-oidn.png) | ![](renders/06-cornell-box.png) |
+
+Same scene, 31x fewer samples.
+
+OIDN is optional. Without it, Kiln builds normally and `--denoise` says it's unavailable. To enable it, unzip a [2.x release](https://github.com/RenderKit/oidn/releases) anywhere and point CMake at it:
+
+```bash
+cmake -B build -DCMAKE_PREFIX_PATH=/path/to/oidn-2.3.3.x86_64.linux
+cmake --build build --config Release
+./build/kiln scenes/cornell.json --samples 16 --denoise -o denoised.png
+```
+
+On Windows, CMake copies the OIDN DLLs next to `kiln.exe`. `-DKILN_DENOISE=OFF` builds without it even when it's installed.
 
 ## How it works
 
@@ -162,10 +183,10 @@ kiln/
 - [x] **Sprint 1:** Foundations (vectors, rays, camera, spheres, PNG output)
 - [x] **Sprint 2:** Materials and lighting (matte, metal, glass, area lights, Cornell box)
 - [x] **Sprint 3:** Performance (triangles, `.obj` meshes, SAH BVH, multithreading, benchmarks)
-- [ ] **Sprint 4:** Polish
+- [x] **Sprint 4:** Polish
   - [x] JSON scene files and CLI
-  - [ ] Live preview window
-  - [ ] Denoising
+  - [x] Live preview window
+  - [x] Denoising
   - [ ] CI
 
 ## References
@@ -176,7 +197,7 @@ kiln/
 - Wald: *On fast Construction of SAH-based Bounding Volume Hierarchies* (2007)
 - [The Cornell Box](https://www.graphics.cornell.edu/online/box/) and the [Stanford 3D Scanning Repository](https://graphics.stanford.edu/data/3Dscanrep/)
 
-**Third-party code:** [stb_image_write](https://github.com/nothings/stb) (public domain / MIT), [tinyobjloader](https://github.com/tinyobjloader/tinyobjloader) (MIT), [nlohmann/json](https://github.com/nlohmann/json) (MIT), [CLI11](https://github.com/CLIUtils/CLI11) (BSD-3-Clause)
+**Third-party code:** [stb_image_write](https://github.com/nothings/stb) (public domain / MIT), [tinyobjloader](https://github.com/tinyobjloader/tinyobjloader) (MIT), [nlohmann/json](https://github.com/nlohmann/json) (MIT), [CLI11](https://github.com/CLIUtils/CLI11) (BSD-3-Clause), [Intel Open Image Denoise](https://github.com/RenderKit/oidn) (Apache-2.0, optional)
 
 ## Contact
 
