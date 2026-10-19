@@ -38,6 +38,38 @@ if(KILN_DENOISE)
   endif()
 endif()
 
+# Live preview window (kiln --preview). Off by default so headless builds and CI never need a
+# display: cmake -B build -DKILN_PREVIEW=ON. SDL2 is downloaded and built as a static library the
+# first time, so there is nothing to install and no DLL to ship.
+option(KILN_PREVIEW "Build the SDL2 live preview window" OFF)
+if(KILN_PREVIEW)
+  include(FetchContent)
+  if(POLICY CMP0135)
+    cmake_policy(SET CMP0135 NEW)  # extracted files get the current time, so rebuilds work
+  endif()
+  # Static, video only: no DLL to ship, and no audio/joystick code to build.
+  foreach(opt SDL_SHARED SDL_TEST SDL_AUDIO SDL_JOYSTICK SDL_HAPTIC SDL_SENSOR)
+    set(${opt} OFF CACHE BOOL "" FORCE)
+  endforeach()
+  set(SDL_STATIC ON CACHE BOOL "" FORCE)
+  set(SDL2_DISABLE_SDL2MAIN ON CACHE BOOL "" FORCE)
+  set(SDL2_DISABLE_INSTALL ON CACHE BOOL "" FORCE)
+  # Treat SDL's headers as system headers so our strict warnings don't fire inside them.
+  if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.25)
+    set(kiln_sdl_system SYSTEM)
+  endif()
+  FetchContent_Declare(SDL2
+    URL https://github.com/libsdl-org/SDL/releases/download/release-2.30.9/SDL2-2.30.9.tar.gz
+    URL_HASH SHA256=24b574f71c87a763f50704bbb630cbe38298d544a1f890f099a4696b1d6beba4
+    ${kiln_sdl_system})
+  # SDL 2.30 asks for CMake 3.0 policies, which CMake 4 warns about. Lift them to 3.10 for SDL
+  # only (older CMake versions ignore this variable).
+  set(CMAKE_POLICY_VERSION_MINIMUM 3.10)
+  FetchContent_MakeAvailable(SDL2)
+  unset(CMAKE_POLICY_VERSION_MINIMUM)
+  message(STATUS "Kiln: live preview enabled (SDL 2.30.9)")
+endif()
+
 # ---------- Core library ----------
 # Everything except main(). Compiled once and linked into the app and every test.
 add_library(kiln_core STATIC
@@ -45,6 +77,7 @@ add_library(kiln_core STATIC
   src/camera.cpp
   src/image.cpp
   src/obj_loader.cpp
+  src/progressive.cpp
   src/renderer.cpp
   src/scene_loader.cpp
   src/stb_impl.cpp
@@ -92,9 +125,19 @@ function(kiln_copy_oidn_dlls target)
   endif()
 endfunction()
 
-# ---------- App -----------
+# ---------- Preview window ----------
+# Separate from kiln_core for the same reason: only the app links SDL.
+add_library(kiln_preview STATIC src/preview.cpp)
+target_link_libraries(kiln_preview PUBLIC kiln_core)
+kiln_warnings(kiln_preview)
+if(KILN_PREVIEW)
+  target_link_libraries(kiln_preview PRIVATE SDL2::SDL2-static)
+  target_compile_definitions(kiln_preview PRIVATE KILN_HAS_SDL)
+endif()
+
+# ---------- App ----------
 add_executable(kiln src/main.cpp)
-target_link_libraries(kiln PRIVATE kiln_core kiln_denoise)
+target_link_libraries(kiln PRIVATE kiln_core kiln_denoise kiln_preview)
 kiln_warnings(kiln)
 kiln_copy_oidn_dlls(kiln)
 
@@ -124,6 +167,7 @@ kiln_test(bvh)
 kiln_test(renderer)
 kiln_test(scene_loader)
 kiln_test(denoise)
+kiln_test(progressive)
 target_link_libraries(test_denoise PRIVATE kiln_denoise)
 kiln_copy_oidn_dlls(test_denoise)
 

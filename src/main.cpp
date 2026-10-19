@@ -4,6 +4,7 @@
 //   kiln scenes/bunny.json --samples 64 --width 800
 //   kiln scenes/dragon.json --benchmark --runs 5
 //   kiln scenes/cornell.json --samples 16 --denoise
+//   kiln scenes/cornell.json --preview
 //   kiln --help
 
 #include <algorithm>
@@ -22,6 +23,7 @@
 #include "kiln/denoise.hpp"
 #include "kiln/hittable.hpp"
 #include "kiln/image.hpp"
+#include "kiln/preview.hpp"
 #include "kiln/renderer.hpp"
 #include "kiln/scene_loader.hpp"
 #include "kiln/version.hpp"
@@ -43,6 +45,7 @@ int main(int argc, char* argv[]) {
     bool midpoint = false;
     bool benchmark = false;
     bool denoise_flag = false;
+    bool preview = false;
     RenderSettings settings;
 
     app.add_option("scene", scene_path, "Scene file to render, e.g. scenes/cornell.json")
@@ -76,9 +79,14 @@ int main(int argc, char* argv[]) {
         ->needs(bench_flag)
         ->capture_default_str();
     bench_flag->excludes(out_opt);
-    app.add_flag("--denoise", denoise_flag,
-                 "Remove noise with Intel Open Image Denoise, so low sample counts look clean")
-        ->excludes(bench_flag);
+    CLI::Option* denoise_opt =
+        app.add_flag("--denoise", denoise_flag,
+                     "Remove noise with Intel Open Image Denoise, so low sample counts look clean")
+            ->excludes(bench_flag);
+    app.add_flag("--preview", preview,
+                 "Open a window that refines live (drag orbits, scroll zooms, S saves to --out)")
+        ->excludes(bench_flag)
+        ->excludes(denoise_opt);
 
     CLI11_PARSE(app, argc, argv);
 
@@ -86,6 +94,10 @@ int main(int argc, char* argv[]) {
     if (denoise_flag && !denoise_available()) {
         std::cerr << "error: --denoise needs a build with Intel Open Image Denoise "
                      "(see README, Denoising)\n";
+        return 1;
+    }
+    if (preview && !preview_available()) {
+        std::cerr << "error: --preview needs a build with -DKILN_PREVIEW=ON (see README)\n";
         return 1;
     }
 
@@ -119,6 +131,8 @@ int main(int argc, char* argv[]) {
         world = bvh.get();
     }
 
+    if (preview) return run_preview(*world, scene.camera, scene.background, settings, out);
+
     const Camera camera(scene.camera);
     Image image(camera.image_width(), camera.image_height());
     const int threads = resolve_thread_count(settings);
@@ -147,7 +161,7 @@ int main(int argc, char* argv[]) {
         return 0;
     }
 
-        // The denoiser's albedo and normal guides are filled during the same render.
+    // The denoiser's albedo and normal guides are filled during the same render.
     std::unique_ptr<Image> albedo;
     std::unique_ptr<Image> normal;
     RenderAovs aovs;

@@ -18,6 +18,7 @@ No game engine, no graphics API. Every pixel is computed by simulating how light
 - **JSON scene files and a real CLI**: change any render without recompiling, with errors that point at the exact field
 - **Benchmark harness**, unit tests with CTest and a clean ThreadSanitizer run
 - **Neural denoising** with Intel Open Image Denoise: 16 samples per pixel looks close to 500 (`--denoise`)
+- **Live preview window** (SDL2): watch the image refine from noise to clean, and drag to orbit the camera (`--preview`)
 
 ## Progress
 
@@ -79,6 +80,7 @@ kiln --help
 | `--no-bvh` / `--midpoint` | Brute force, or median-split BVH instead of SAH |
 | `--benchmark` | Time the render instead of saving it: median of `--runs` and Mrays/s |
 | `--denoise` | Remove noise with Intel Open Image Denoise (see [Denoising](#denoising)) |
+| `--preview` | Live window that refines as you watch (see [Live preview](#live-preview)) |
 
 **Tests and tools**
 
@@ -125,6 +127,29 @@ Mistakes name the exact field:
 ```
 error: scenes/cornell.json: objects[6].material: unknown material 'glas' (defined: glass, green, light, mirror, red, white)
 ```
+## Live preview
+
+```bash
+cmake -B build -DKILN_PREVIEW=ON          # downloads and builds SDL2 the first time
+cmake --build build --config Release
+./build/kiln scenes/cornell.json --preview
+```
+
+| Input | Action |
+|---|---|
+| Drag | Orbit the camera around the scene |
+| Scroll | Zoom in and out |
+| `R` | Reset the view |
+| `S` | Save the current image to `--out` |
+| `Esc` | Quit |
+
+The window title shows the pass count, elapsed time and Mrays/s. Each pass adds one sample per pixel, so the image goes from noise to clean in seconds.
+
+- **Rendering never blocks the window.** Worker threads trace each pass; the main thread only handles input and uploads the latest frame about 30 times a second.
+- **No tearing.** A pass is added to the running average only once it's complete, under a lock, so the window never shows a half-finished frame.
+- **Instant restarts.** Moving the camera cancels the pass in flight within one tile and starts accumulating again.
+
+The preview is off by default, so headless builds never need SDL or a display.
 ## Denoising
 
 `--denoise` runs [Intel Open Image Denoise](https://www.openimagedenoise.org/), a neural denoiser, on the finished render. During the same render, Kiln fills two guide images: the **albedo** (surface colour) and **normal** of the first rough surface each ray reaches, looking through glass and mirrors. They show the denoiser where real edges are, so it removes noise without blurring detail.
@@ -197,7 +222,7 @@ kiln/
 - Wald: *On fast Construction of SAH-based Bounding Volume Hierarchies* (2007)
 - [The Cornell Box](https://www.graphics.cornell.edu/online/box/) and the [Stanford 3D Scanning Repository](https://graphics.stanford.edu/data/3Dscanrep/)
 
-**Third-party code:** [stb_image_write](https://github.com/nothings/stb) (public domain / MIT), [tinyobjloader](https://github.com/tinyobjloader/tinyobjloader) (MIT), [nlohmann/json](https://github.com/nlohmann/json) (MIT), [CLI11](https://github.com/CLIUtils/CLI11) (BSD-3-Clause), [Intel Open Image Denoise](https://github.com/RenderKit/oidn) (Apache-2.0, optional)
+**Third-party code:** [stb_image_write](https://github.com/nothings/stb) (public domain / MIT), [tinyobjloader](https://github.com/tinyobjloader/tinyobjloader) (MIT), [nlohmann/json](https://github.com/nlohmann/json) (MIT), [CLI11](https://github.com/CLIUtils/CLI11) (BSD-3-Clause), [Intel Open Image Denoise](https://github.com/RenderKit/oidn) (Apache-2.0, optional), [SDL2](https://github.com/libsdl-org/SDL) (zlib, optional)
 
 ## Contact
 

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <cstdint>
 
 #include "kiln/camera.hpp"
@@ -14,6 +15,9 @@ struct RenderSettings {
     int tile_size = 32;  // tiles are tile_size x tile_size pixels
     std::uint32_t seed = 1337;
     bool show_progress = true;
+    // Set the flag to stop early: render() returns once in-flight tiles finish, and tiles it
+    // never started are left untouched. Used by the live preview to restart instantly.
+    const std::atomic<bool>* cancel = nullptr;
 };
 
 // What a render did, for benchmarking.

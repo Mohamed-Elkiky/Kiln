@@ -1,11 +1,15 @@
 #pragma once
 
+#include <cstdint>
 #include <string>
 #include <vector>
 
 #include "kiln/vec3.hpp"
 
 namespace kiln {
+
+// One linear colour channel as a display byte: gamma 2, clamped. What write_png() stores.
+std::uint8_t to_display_byte(double linear);
 
 // Framebuffer of linear colours, (0, 0) is top-left.
 class Image {

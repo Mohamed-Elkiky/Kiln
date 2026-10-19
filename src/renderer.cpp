@@ -134,11 +134,15 @@ RenderStats render(const Camera& camera, const Hittable& world, const Color& bac
     std::mutex done_mutex;
     std::condition_variable done_cv;
 
+    auto cancelled = [&] {
+        return settings.cancel && settings.cancel->load(std::memory_order_relaxed);
+    };
+
     auto worker = [&]() {
         std::uint64_t rays = 0;  // counted locally, added to the total once at the end
         while (true) {
             const int t = next_tile.fetch_add(1, std::memory_order_relaxed);
-            if (t >= tile_count) {
+            if (t >= tile_count || cancelled()) {
                 total_rays.fetch_add(rays, std::memory_order_relaxed);
                 return;
             }
@@ -201,9 +205,9 @@ RenderStats render(const Camera& camera, const Hittable& world, const Color& bac
             const int done = tiles_done.load(std::memory_order_relaxed);
             std::clog << "\rTiles: " << done << '/' << tile_count << " ("
                       << (100 * done / tile_count) << "%)   " << std::flush;
-            if (done >= tile_count) break;
+            if (done >= tile_count || cancelled()) break;
             done_cv.wait_for(lock, std::chrono::milliseconds(100), [&] {
-                return tiles_done.load(std::memory_order_relaxed) >= tile_count;
+                return tiles_done.load(std::memory_order_relaxed) >= tile_count || cancelled();
             });
         }
         std::clog << "\rDone.                         \n";
