@@ -87,7 +87,7 @@ kiln --help
 ```bash
 ctest --test-dir build -C Release                     # unit tests
 ./build/kiln_bench --out docs/benchmarks.md           # benchmarks, from the repo root
-cmake -B build-tsan -DKILN_TSAN=ON && cmake --build build-tsan && ./build-tsan/test_renderer   # TSan (GCC/Clang)
+cmake -B build-tsan -DKILN_TSAN=ON && cmake --build build-tsan && ./build-tsan/test_renderer && ./build-tsan/test_progressive   # TSan (GCC/Clang)
 ```
 
 **Models** are too large to commit. Download them into `assets/models/` (use `curl.exe` on Windows):
@@ -101,7 +101,7 @@ curl -L -o assets/models/xyzrgb_dragon.obj https://raw.githubusercontent.com/ale
 
 ## Scene files
 
-Every showcase render is a JSON file in `scenes/`:
+Every scene is a JSON file in `scenes/`:
 
 ```json
 {
@@ -127,6 +127,7 @@ Mistakes name the exact field:
 ```
 error: scenes/cornell.json: objects[6].material: unknown material 'glas' (defined: glass, green, light, mirror, red, white)
 ```
+
 ## Live preview
 
 ```bash
@@ -150,6 +151,7 @@ The window title shows the pass count, elapsed time and Mrays/s. Each pass adds 
 - **Instant restarts.** Moving the camera cancels the pass in flight within one tile and starts accumulating again.
 
 The preview is off by default, so headless builds never need SDL or a display.
+
 ## Denoising
 
 `--denoise` runs [Intel Open Image Denoise](https://www.openimagedenoise.org/), a neural denoiser, on the finished render. During the same render, Kiln fills two guide images: the **albedo** (surface colour) and **normal** of the first rough surface each ray reaches, looking through glass and mirrors. They show the denoiser where real edges are, so it removes noise without blurring detail.
@@ -184,6 +186,7 @@ Soft shadows, colour bleeding and caustics all fall out of the physics without b
 **BVH.** At each node, Kiln bins primitives into 16 buckets per axis and picks the split with the lowest Surface Area Heuristic cost, `area(L) x count(L) + area(R) x count(R)`. Big boxes are likelier to be hit, so SAH keeps them nearly empty. Traversal visits the nearer child first and clips the far child to the closest hit so far, so most far-side boxes are rejected immediately.
 
 **Multithreading.**
+
 - **Tiles, not rows:** compact tiles keep neighbouring rays on the same BVH nodes, so the cache stays warm, and they balance uneven work.
 - **Lock-free queue:** a single `std::atomic<int>`; each thread `fetch_add`s the next tile. No mutex.
 - **No framebuffer locks:** every pixel belongs to exactly one tile.
@@ -208,7 +211,7 @@ kiln/
 - [x] **Sprint 1:** Foundations (vectors, rays, camera, spheres, PNG output)
 - [x] **Sprint 2:** Materials and lighting (matte, metal, glass, area lights, Cornell box)
 - [x] **Sprint 3:** Performance (triangles, `.obj` meshes, SAH BVH, multithreading, benchmarks)
-- [x] **Sprint 4:** Polish
+- [ ] **Sprint 4:** Polish
   - [x] JSON scene files and CLI
   - [x] Live preview window
   - [x] Denoising
@@ -216,13 +219,34 @@ kiln/
 
 ## References
 
-- Shirley, Black, Hollasch: [*Ray Tracing in One Weekend* series](https://raytracing.github.io/)
-- Pharr, Jakob, Humphreys: [*Physically Based Rendering*](https://pbr-book.org/)
-- Möller, Trumbore: [*Fast, Minimum Storage Ray/Triangle Intersection*](https://www.graphics.cornell.edu/pubs/1997/MT97.pdf) (1997)
-- Wald: *On fast Construction of SAH-based Bounding Volume Hierarchies* (2007)
-- [The Cornell Box](https://www.graphics.cornell.edu/online/box/) and the [Stanford 3D Scanning Repository](https://graphics.stanford.edu/data/3Dscanrep/)
+**Books**
+- Shirley, Black, Hollasch: *Ray Tracing in One Weekend* series
+- Pharr, Jakob, Humphreys: *Physically Based Rendering: From Theory to Implementation*
 
-**Third-party code:** [stb_image_write](https://github.com/nothings/stb) (public domain / MIT), [tinyobjloader](https://github.com/tinyobjloader/tinyobjloader) (MIT), [nlohmann/json](https://github.com/nlohmann/json) (MIT), [CLI11](https://github.com/CLIUtils/CLI11) (BSD-3-Clause), [Intel Open Image Denoise](https://github.com/RenderKit/oidn) (Apache-2.0, optional), [SDL2](https://github.com/libsdl-org/SDL) (zlib, optional)
+**Light transport**
+- Kajiya: *The Rendering Equation*, SIGGRAPH (1986). The equation every path tracer solves.
+- Veach: *Robust Monte Carlo Methods for Light Transport Simulation*, PhD thesis, Stanford (1997)
+- Schlick: *An Inexpensive BRDF Model for Physically-based Rendering*, Computer Graphics Forum (1994). The Fresnel approximation used for glass.
+
+**Intersection**
+- Möller, Trumbore: *Fast, Minimum Storage Ray/Triangle Intersection*, Journal of Graphics Tools (1997)
+- Kay, Kajiya: *Ray Tracing Complex Scenes*, SIGGRAPH (1986). The slab test for bounding boxes.
+- Williams, Barrus, Morley, Shirley: *An Efficient and Robust Ray-Box Intersection Algorithm*, Journal of Graphics Tools (2005)
+
+**Acceleration**
+- Goldsmith, Salmon: *Automatic Creation of Object Hierarchies for Ray Tracing*, IEEE Computer Graphics and Applications (1987). The surface-area idea behind SAH.
+- MacDonald, Booth: *Heuristics for Ray Tracing Using Space Subdivision*, The Visual Computer (1990). The Surface Area Heuristic.
+- Wald: *On fast Construction of SAH-based Bounding Volume Hierarchies*, IEEE Symposium on Interactive Ray Tracing (2007). Binned SAH, as used here.
+
+**Denoising**
+- Intel Open Image Denoise documentation: albedo and normal guides, prefiltering, `cleanAux`
+
+**Scenes and models**
+- The Cornell Box, Cornell University Program of Computer Graphics
+- Turk, Levoy: *Zippered Polygon Meshes from Range Images*, SIGGRAPH (1994). The Stanford bunny.
+- The Stanford 3D Scanning Repository (bunny, XYZ RGB dragon) and common-3d-test-models (the `.obj` downloads, Utah teapot)
+
+**Third-party code:** stb_image_write (public domain / MIT), tinyobjloader (MIT), nlohmann/json (MIT), CLI11 (BSD-3-Clause), Intel Open Image Denoise (Apache-2.0, optional), SDL2 (zlib, optional)
 
 ## Contact
 
