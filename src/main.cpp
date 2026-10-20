@@ -46,6 +46,7 @@ int main(int argc, char* argv[]) {
     bool benchmark = false;
     bool denoise_flag = false;
     bool preview = false;
+    bool no_nee = false;
     RenderSettings settings;
 
     app.add_option("scene", scene_path, "Scene file to render, e.g. scenes/cornell.json")
@@ -72,6 +73,8 @@ int main(int argc, char* argv[]) {
         app.add_flag("--no-bvh", no_bvh, "Test every object per ray (brute force, for comparison)");
     app.add_flag("--midpoint", midpoint, "Build the BVH with median splits instead of SAH")
         ->excludes(no_bvh_flag);
+    app.add_flag("--no-nee", no_nee,
+                 "Don't sample lights directly (pure path tracing, much noisier, for comparison)");
     CLI::Option* bench_flag = app.add_flag(
         "--benchmark", benchmark, "Time the render instead of saving it: median time and Mrays/s");
     app.add_option("--runs", runs, "Renders to time with --benchmark")
@@ -114,15 +117,22 @@ int main(int argc, char* argv[]) {
     if (*depth_opt) scene.camera.max_depth = depth;
     if (*width_opt) scene.camera.image_width = width;
 
+    // Next event estimation: sample the scene's light quads directly at every diffuse bounce.
+    if (!no_nee && !scene.lights.empty()) {
+        settings.lights = &scene.lights;
+        std::cout << "Sampling " << scene.lights.size()
+                  << (scene.lights.size() == 1 ? " light" : " lights") << " directly (NEE)\n";
+    }
+
     // Acceleration structure
     const Hittable* world = &scene.world;
-    std::unique_ptr<BVHNode> bvh;
+    std::unique_ptr<BVH> bvh;
     if (no_bvh) {
         std::cout << "BVH disabled: testing every object per ray\n";
     } else {
         const BVHSplit split = midpoint ? BVHSplit::kMidpoint : BVHSplit::kSAH;
         const auto build_start = std::chrono::steady_clock::now();
-        bvh = std::make_unique<BVHNode>(scene.world.objects(), split);
+        bvh = std::make_unique<BVH>(scene.world.objects(), split);
         const auto build_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
                                   std::chrono::steady_clock::now() - build_start)
                                   .count();

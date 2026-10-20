@@ -72,6 +72,19 @@ int main() {
     check(boxed.world.objects().size() == 6, "box becomes 6 quads");
     check(boxed.camera.aspect_ratio == 16.0 / 9.0, "aspect ratio [16, 9] is exact");
 
+    // ---------- Lights for next event estimation ----------
+    check(cornell.lights.size() == 1, "cornell box registers its ceiling light");
+    check(boxed.lights.empty(), "matte objects are not lights");
+    const Scene glowing = parse_scene("{ " + kCamera + R"(,
+        "materials": { "lamp": { "type": "light", "emit": [4, 4, 4] },
+                       "dark": { "type": "light", "emit": [0, 0, 0] } },
+        "objects": [
+          { "type": "box", "min": [0, 0, 0], "max": [1, 1, 1], "material": "lamp" },
+          { "type": "quad", "corner": [0, 0, 0], "u": [1, 0, 0], "v": [0, 1, 0], "material": "dark" },
+          { "type": "sphere", "center": [0, 5, 0], "radius": 1, "material": "lamp" } ] })");
+    check(glowing.lights.size() == 6,
+          "every face of a glowing box is a light; black and non-quad emitters are not");
+
     // ---------- Errors: each must name the file and the field ----------
     check_error(R"({ "objects": [] })", "test.json: missing required field 'camera'",
                 "missing camera");

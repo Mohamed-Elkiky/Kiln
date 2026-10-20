@@ -6,6 +6,7 @@
 #include "kiln/camera.hpp"
 #include "kiln/hittable.hpp"
 #include "kiln/image.hpp"
+#include "kiln/lights.hpp"
 #include "kiln/vec3.hpp"
 
 namespace kiln {
@@ -18,11 +19,14 @@ struct RenderSettings {
     // Set the flag to stop early: render() returns once in-flight tiles finish, and tiles it
     // never started are left untouched. Used by the live preview to restart instantly.
     const std::atomic<bool>* cancel = nullptr;
+    // Next event estimation: at every diffuse bounce, also sample one of these lights directly
+    // with a shadow ray. Same image on average, far less noise. nullptr = off (pure path tracing).
+    const Lights* lights = nullptr;
 };
 
 // What a render did, for benchmarking.
 struct RenderStats {
-    std::uint64_t rays = 0;  // every ray traced: camera rays plus all bounces
+    std::uint64_t rays = 0;  // every ray traced: camera rays, bounces and shadow rays
 };
 
 // Optional guide images for the denoiser, filled during the same render. Per pixel, each is the

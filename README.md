@@ -1,5 +1,7 @@
 # Kiln
 
+[![CI](https://github.com/Mohamed-Elkiky/Lumen/actions/workflows/ci.yml/badge.svg)](https://github.com/Mohamed-Elkiky/Lumen/actions/workflows/ci.yml)
+
 **A physically based path tracer written from scratch in modern C++17.**
 
 No game engine, no graphics API. Every pixel is computed by simulating how light bounces around a scene.
@@ -11,14 +13,15 @@ No game engine, no graphics API. Every pixel is computed by simulating how light
 ## Highlights
 
 - **Monte Carlo path tracing** with matte, metal (with roughness), glass (Snell's law, total internal reflection, Schlick) and emissive area lights
+- **Next event estimation**: every matte bounce fires a shadow ray straight at a light. About 3x less noise at the same sample count, with the same average image (checked by a unit test)
 - **Triangle meshes** from `.obj` files, with Möller-Trumbore intersection and smooth shading from vertex normals (generated when a model has none)
-- **BVH with binned SAH splits**: the Stanford bunny goes from ~57 minutes to 1.44 s on one thread (~2,400x)
+- **Flat BVH with binned SAH splits**: one array of 64-byte nodes, an iterative traversal and triangles packed by value. The Stanford bunny goes from ~59 minutes to 1.29 s on one thread (~2,700x)
 - **Lock-free multithreaded tile renderer**: ~15x faster on 24 threads
 - **Deterministic**: byte-identical output on 1 or 24 threads, with or without the BVH
 - **JSON scene files and a real CLI**: change any render without recompiling, with errors that point at the exact field
-- **Benchmark harness**, unit tests with CTest and a clean ThreadSanitizer run
 - **Neural denoising** with Intel Open Image Denoise: 16 samples per pixel looks close to 500 (`--denoise`)
 - **Live preview window** (SDL2): watch the image refine from noise to clean, and drag to orbit the camera (`--preview`)
+- **Tested and benchmarked**: unit tests with CTest, a benchmark harness, and CI on Linux (GCC, Clang), macOS and Windows with ThreadSanitizer and clang-format checks
 
 ## Progress
 
@@ -41,17 +44,17 @@ Built in public, one sprint at a time. Each render was a milestone.
 
 | Scene | Size | Naive, 1T | BVH SAH, 1T | BVH SAH, 24T | Total speedup |
 |---|---|---|---|---|---|
-| Stanford bunny | 69k tris | ~57m 24s | 1.44 s | **0.10 s** | **~33,000x** |
-| XYZ RGB dragon | 250k tris | ~9h 17m | 1.91 s | **0.13 s** | **~248,000x** |
-| Cornell box | 8 objects | 7.69 s | 9.19 s | **0.60 s** | 12.8x |
+| Stanford bunny | 69k tris | ~58m 59s | 1.29 s | **0.09 s** | **~37,000x** |
+| XYZ RGB dragon | 250k tris | ~9h 18m | 1.63 s | **0.11 s** | **~294,000x** |
+| Cornell box | 8 objects | 10.5 s | 12.0 s | **0.88 s** | 11.9x |
 
-`~` is an estimate: brute force on a mesh is rendered smaller and scaled up. A full brute-force bunny render, timed directly, took 3,703 s, within 7% of the estimate.
+`~` is an estimate: brute force on a mesh is rendered smaller and scaled up. A full brute-force bunny render, timed directly, took 3,703 s, within 5% of the estimate. The Cornell box fires a shadow ray at every matte bounce (next event estimation), so each sample costs more but carries far less noise.
 
 - **Logarithmic scaling.** The dragon has 3.6x more triangles than the bunny but takes only 1.3x as long.
-- **SAH beats a median split** by 1.5x on the bunny and 1.65x on the dragon.
-- **Threads scale 14.4x to 15.3x** on 24 threads. There are 12 physical cores; hyperthreads fill the idle cycles.
-- **Small scenes don't need a BVH.** On the 8-object Cornell box, brute force is 1.2x faster.
-- **Brute force hits a memory wall.** Per ray, naive is 9.5x slower on the dragon than the bunny despite only 3.6x more triangles. The bunny likely fits in the 32 MB L3 cache; the dragon doesn't.
+- **SAH beats a median split** by 1.5x on the bunny and 1.7x on the dragon.
+- **Threads scale 12.9x to 14.3x** on 24 threads. There are 12 physical cores; hyperthreads fill the idle cycles.
+- **Small scenes don't need a BVH.** On the 8-object Cornell box, brute force is 1.1x faster.
+- **Brute force hits a memory wall.** Per ray, naive is 9.3x slower on the dragon than the bunny despite only 3.6x more triangles. The bunny likely fits in the 32 MB L3 cache; the dragon doesn't.
 
 ## Build and run
 
@@ -78,17 +81,10 @@ kiln --help
 | `-t, --threads N` | Worker threads (default: all) |
 | `--seed N` | Random seed; same seed, same image |
 | `--no-bvh` / `--midpoint` | Brute force, or median-split BVH instead of SAH |
+| `--no-nee` | Turn off next event estimation (pure path tracing, for comparison) |
 | `--benchmark` | Time the render instead of saving it: median of `--runs` and Mrays/s |
 | `--denoise` | Remove noise with Intel Open Image Denoise (see [Denoising](#denoising)) |
 | `--preview` | Live window that refines as you watch (see [Live preview](#live-preview)) |
-
-**Tests and tools**
-
-```bash
-ctest --test-dir build -C Release                     # unit tests
-./build/kiln_bench --out docs/benchmarks.md           # benchmarks, from the repo root
-cmake -B build-tsan -DKILN_TSAN=ON && cmake --build build-tsan && ./build-tsan/test_renderer && ./build-tsan/test_progressive   # TSan (GCC/Clang)
-```
 
 **Models** are too large to commit. Download them into `assets/models/` (use `curl.exe` on Windows):
 
@@ -98,6 +94,33 @@ curl -L -o assets/models/teapot.obj https://raw.githubusercontent.com/alecjacobs
 curl -L -o assets/models/stanford-bunny.obj https://raw.githubusercontent.com/alecjacobson/common-3d-test-models/master/data/stanford-bunny.obj
 curl -L -o assets/models/xyzrgb_dragon.obj https://raw.githubusercontent.com/alecjacobson/common-3d-test-models/master/data/xyzrgb_dragon.obj
 ```
+
+## Tests, benchmarks and CI
+
+```bash
+ctest --test-dir build -C Release                     # unit tests
+./build/kiln_bench --out docs/benchmarks.md           # benchmarks, from the repo root
+cmake -B build-tsan -DKILN_TSAN=ON && cmake --build build-tsan && ./build-tsan/test_renderer && ./build-tsan/test_progressive   # TSan (GCC/Clang)
+```
+
+Every push and pull request runs [GitHub Actions](.github/workflows/ci.yml):
+
+| Job | What it checks |
+|---|---|
+| Linux GCC + OIDN | Build with warnings as errors, all tests, real denoising, a smoke render |
+| Linux Clang | Build with warnings as errors, all tests, a smoke render |
+| macOS Clang | Build, all tests, a smoke render |
+| Windows MSVC + preview | Build including the SDL2 preview window, all tests, a smoke render |
+| ThreadSanitizer | The threaded renderer and progressive preview, with zero data races |
+| clang-format | Every source file matches `.clang-format` (pinned to 18.1.8) |
+
+The tests check, among other things, that:
+
+- the BVH returns the same closest hit as brute force on 20k random rays
+- output is pixel-identical on 1, 4 and 16 threads, with and without NEE
+- NEE converges to the same brightness as plain path tracing, with less noise
+- denoising 8 spp cuts the error against a 256 spp reference by over 4x
+- every scene file error names the exact field
 
 ## Scene files
 
@@ -120,6 +143,7 @@ Every scene is a JSON file in `scenes/`:
 
 - **Materials:** `lambertian`, `metal` (`fuzz`), `dielectric` (`ior`), `light` (`emit`)
 - **Objects:** `sphere`, `quad`, `triangle`, `box`, `mesh` (`file`, plus `transform`: `scale`, `rotate_y`, `translate`)
+- Quads and boxes with a `light` material are sampled directly by next event estimation.
 - Mesh paths are relative to the scene file, and `//` comments are allowed.
 
 Mistakes name the exact field:
@@ -178,12 +202,23 @@ On Windows, CMake copies the OIDN DLLs next to `kiln.exe`. `-DKILN_DENOISE=OFF` 
 2. For each pixel, the **camera** fires many jittered rays (antialiasing).
 3. Each ray walks a **BVH** to find the closest hit, skipping any box it misses along with everything inside.
 4. The surface's **material** decides what happens next: scatter (matte), reflect (metal), refract or reflect (glass), or emit (lights).
-5. The ray **bounces** recursively, picking up colour, until it escapes or hits the bounce limit.
-6. Samples are **averaged**, gamma corrected and written to PNG.
+5. At a matte surface, a **shadow ray** goes straight to a random point on a random light (next event estimation).
+6. The ray **bounces** recursively, picking up colour, until it escapes or hits the bounce limit.
+7. Samples are **averaged**, gamma corrected and written to PNG.
 
 Soft shadows, colour bleeding and caustics all fall out of the physics without being programmed in.
 
+**Next event estimation.** Pure path tracing only finds a light when a random bounce happens to hit it, which is rare for a small ceiling panel. So at every matte surface Kiln also picks a random point on a random light quad and fires a shadow ray at it. If nothing blocks it, that light's contribution is added directly. If the random bounce later lands on that same light, its glow is skipped, because the shadow ray already counted it. Mirrors and glass reflect in one exact direction, so they can't use shadow rays and still pick up light by hitting it, which is how caustics survive. On the Cornell box at 16 spp this cuts the error against a converged reference by 3.2x.
+
 **BVH.** At each node, Kiln bins primitives into 16 buckets per axis and picks the split with the lowest Surface Area Heuristic cost, `area(L) x count(L) + area(R) x count(R)`. Big boxes are likelier to be hit, so SAH keeps them nearly empty. Traversal visits the nearer child first and clips the far child to the closest hit so far, so most far-side boxes are rejected immediately.
+
+The tree is stored **flat**:
+
+- **One array** of 64-byte nodes (a cache line each) in depth-first order. A left child is always the next node, so only the right child's index is stored.
+- **No recursion:** traversal is a loop with a fixed-size stack, and `1 / direction` is worked out once per ray, not once per box.
+- **Packed triangles:** triangles are copied into the BVH by value in leaf order and tested with a direct call instead of a virtual one.
+
+Against the pointer-based tree it replaced, that's 1.09x faster on the bunny and 1.19x on the dragon on one thread with MSVC (1.35x and 1.42x with GCC), with byte-identical output.
 
 **Multithreading.**
 
@@ -196,7 +231,8 @@ Soft shadows, colour bleeding and caustics all fall out of the physics without b
 
 ```
 kiln/
-├── include/kiln/   Headers: maths, camera, materials, shapes, BVH, renderer, scene loader
+├── .github/        CI workflow
+├── include/kiln/   Headers: maths, camera, materials, shapes, lights, BVH, renderer, scene loader
 ├── src/            Implementation, main and benchmark
 ├── tests/          Unit tests and .obj fixtures
 ├── scenes/         JSON scene files
@@ -211,11 +247,13 @@ kiln/
 - [x] **Sprint 1:** Foundations (vectors, rays, camera, spheres, PNG output)
 - [x] **Sprint 2:** Materials and lighting (matte, metal, glass, area lights, Cornell box)
 - [x] **Sprint 3:** Performance (triangles, `.obj` meshes, SAH BVH, multithreading, benchmarks)
-- [ ] **Sprint 4:** Polish
+- [x] **Sprint 4:** Polish
   - [x] JSON scene files and CLI
   - [x] Live preview window
   - [x] Denoising
-  - [ ] CI
+  - [x] Next event estimation
+  - [x] Flat BVH
+  - [x] CI
 
 ## References
 
@@ -225,7 +263,7 @@ kiln/
 
 **Light transport**
 - Kajiya: *The Rendering Equation*, SIGGRAPH (1986). The equation every path tracer solves.
-- Veach: *Robust Monte Carlo Methods for Light Transport Simulation*, PhD thesis, Stanford (1997)
+- Veach: *Robust Monte Carlo Methods for Light Transport Simulation*, PhD thesis, Stanford (1997). Light sampling and next event estimation.
 - Schlick: *An Inexpensive BRDF Model for Physically-based Rendering*, Computer Graphics Forum (1994). The Fresnel approximation used for glass.
 
 **Intersection**

@@ -27,6 +27,10 @@ public:
     // Perfect mirrors and glass: they show what's behind them, so the denoiser's guides follow
     // the ray through them instead of stopping here.
     virtual bool is_specular() const { return false; }
+
+    // Ideal diffuse (Lambertian) surfaces get next event estimation: the renderer samples a
+    // light directly at every bounce. The BRDF is albedo() / pi.
+    virtual bool is_diffuse() const { return false; }
 };
 
 // Matte: scatters light in random directions around the normal.
@@ -48,7 +52,8 @@ public:
     }
 
     Color albedo() const override { return albedo_; }
-
+    bool is_diffuse() const override { return true; }
+    
 private:
     Color albedo_;
 };
@@ -138,6 +143,7 @@ public:
     Color albedo() const override {
         return {std::fmin(emit_.x, 1.0), std::fmin(emit_.y, 1.0), std::fmin(emit_.z, 1.0)};
     }
+
 private:
     Color emit_;
 };

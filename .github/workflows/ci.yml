@@ -1,0 +1,89 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# A newer push to the same branch cancels the run still going for the old one.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  format:
+    name: clang-format
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      # Pinned, so a runner image update can never change what "formatted" means.
+      - name: Check formatting
+        run: pipx run --spec clang-format==18.1.8 clang-format --dry-run --Werror src/*.cpp include/kiln/*.hpp tests/*.cpp
+
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux GCC + OIDN
+            os: ubuntu-24.04
+            flags: -DCMAKE_CXX_COMPILER=g++ -DCMAKE_COMPILE_WARNING_AS_ERROR=ON
+            oidn: true
+          - name: Linux Clang
+            os: ubuntu-24.04
+            flags: -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_COMPILE_WARNING_AS_ERROR=ON
+          - name: macOS Clang
+            os: macos-14
+            flags: ""
+          - name: Windows MSVC + preview
+            os: windows-2022
+            flags: -DKILN_PREVIEW=ON
+    steps:
+      - uses: actions/checkout@v4
+
+      # With OIDN, test_denoise really denoises instead of only checking the fallback.
+      - name: Download Intel Open Image Denoise
+        if: matrix.oidn
+        run: |
+          curl -sSL https://github.com/RenderKit/oidn/releases/download/v2.3.3/oidn-2.3.3.x86_64.linux.tar.gz | tar xz
+          echo "OIDN_FLAGS=-DCMAKE_PREFIX_PATH=$PWD/oidn-2.3.3.x86_64.linux" >> "$GITHUB_ENV"
+
+      - name: Configure
+        shell: bash
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release ${{ matrix.flags }} $OIDN_FLAGS
+
+      - name: Build
+        run: cmake --build build --config Release --parallel
+
+      - name: Test
+        run: ctest --test-dir build -C Release --output-on-failure
+
+      - name: Smoke render
+        shell: bash
+        run: |
+          exe=build/kiln
+          if [ -f build/Release/kiln.exe ]; then exe=build/Release/kiln.exe; fi
+          "$exe" scenes/cornell.json --samples 4 --width 100 -o ci-cornell.png
+          test -s ci-cornell.png
+
+  tsan:
+    name: ThreadSanitizer
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      # Ubuntu 24.04 runners randomise memory more than TSan supports, which crashes it on start.
+      - name: Allow TSan's memory layout
+        run: sudo sysctl vm.mmap_rnd_bits=28
+      - name: Configure
+        run: cmake -B build-tsan -DKILN_TSAN=ON -DKILN_DENOISE=OFF
+      - name: Build
+        run: cmake --build build-tsan --parallel --target test_renderer test_progressive
+      - name: Run threaded tests
+        env:
+          TSAN_OPTIONS: halt_on_error=1
+        run: |
+          ./build-tsan/test_renderer
+          ./build-tsan/test_progressive

@@ -5,6 +5,7 @@
 
 #include "kiln/camera.hpp"
 #include "kiln/hittable_list.hpp"
+#include "kiln/lights.hpp"
 #include "kiln/vec3.hpp"
 
 namespace kiln {
@@ -12,6 +13,7 @@ namespace kiln {
 // Everything a render needs: the objects, the camera and the background colour.
 struct Scene {
     HittableList world;
+    Lights lights;  // the emissive quads in world (box faces included), for next event estimation
     CameraConfig camera;
     Color background{0.0, 0.0, 0.0};
 };

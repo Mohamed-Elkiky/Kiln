@@ -15,8 +15,9 @@ public:
         : Q_(Q), u_(u), v_(v), mat_(std::move(mat)) {
         const Vec3 n = cross(u_, v_);
         normal_ = unit_vector(n);
-        D_ = dot(normal_, Q_);  // plane equation: dot(normal, P) = D
-        w_ = n / dot(n, n);     // used to get planar coordinates
+        area_ = n.length();
+        D_ = dot(normal_, Q_);
+        w_ = n / dot(n, n);  // used to get planar coordinates
 
         // Box around all four corners (the two diagonals cover them).
         bbox_ = AABB(AABB(Q_, Q_ + u_ + v_), AABB(Q_ + u_, Q_ + v_));
@@ -32,7 +33,7 @@ public:
 
         // Where the ray meets the plane.
         const double t = (D_ - dot(normal_, r.origin())) / denom;
-        if (!ray_t.contains(t)) return false;
+        if (!ray_t.surrounds(t)) return false;
 
         // Express the hit point in quad coordinates (alpha along u, beta along v).
         const Point3 intersection = r.at(t);
@@ -45,10 +46,20 @@ public:
 
         rec.t = t;
         rec.p = intersection;
+        // after
         rec.mat = mat_.get();
+        rec.object = this;
         rec.set_face_normal(r, normal_);
         return true;
     }
+
+    // ---------- Light sampling (next event estimation) ----------
+
+    // Uniformly random point on the quad.
+    Point3 random_point() const { return Q_ + random_double() * u_ + random_double() * v_; }
+    double area() const { return area_; }
+    const Vec3& normal() const { return normal_; }
+    const Material& material() const { return *mat_; }
 
 private:
     Point3 Q_;
@@ -56,6 +67,7 @@ private:
     Vec3 w_;
     Vec3 normal_;
     double D_;
+    double area_;
     std::shared_ptr<Material> mat_;
     AABB bbox_;
 };

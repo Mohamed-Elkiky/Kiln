@@ -40,6 +40,7 @@ public:
         const Vec3 outward_normal = (rec.p - center_) / radius_;
         rec.set_face_normal(r, outward_normal);
         rec.mat = mat_.get();
+        rec.object = this;
         return true;
     }
 

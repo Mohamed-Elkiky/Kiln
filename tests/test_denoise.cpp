@@ -59,7 +59,7 @@ int main() {
 
     // Small Cornell box: noisy at 8 spp, reference at 256 spp.
     Scene scene = load_scene(std::string(KILN_SCENES_DIR) + "/cornell.json");
-    const BVHNode bvh(scene.world.objects());
+    const BVH bvh(scene.world.objects());
     scene.camera.image_width = 96;
     RenderSettings settings;
     settings.show_progress = false;

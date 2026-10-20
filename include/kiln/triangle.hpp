@@ -9,7 +9,7 @@
 namespace kiln {
 
 // A single triangle. The building block of every 3D model.
-class Triangle : public Hittable {
+class Triangle final : public Hittable {
 public:
     // Flat shading: one normal for the whole face.
     Triangle(const Point3& v0, const Point3& v1, const Point3& v2, std::shared_ptr<Material> mat)
@@ -56,6 +56,7 @@ public:
         rec.t = t;
         rec.p = r.at(t);
         rec.mat = mat_.get();
+        rec.object = this;
 
         // Barycentric weights (1 - u - v, u, v) blend the vertex normals for smooth shading.
         const Vec3 outward_normal = has_vertex_normals_

@@ -8,11 +8,13 @@
 namespace kiln {
 
 class Material;  // forward declaration: material.hpp includes this file
+class Hittable;
 
 struct HitRecord {
     Point3 p;
-    Vec3 normal;                    // always points against the incoming ray
-    const Material* mat = nullptr;  // non-owning: the object owns its material
+    Vec3 normal;                       // always points against the incoming ray
+    const Material* mat = nullptr;     // non-owning: the object owns its material
+    const Hittable* object = nullptr;  // the primitive hit; lets the renderer spot sampled lights
     double t = 0.0;
     bool front_face = false;  // true if the ray hit the outside of the surface
 

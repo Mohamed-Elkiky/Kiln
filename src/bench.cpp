@@ -99,12 +99,14 @@ double median(std::vector<double> v) {
 
 // One render, timed. Returns {seconds, rays}.
 std::pair<double, std::uint64_t> time_render(const Hittable& scene, const CameraConfig& config,
-                                             const Color& background, int threads) {
+                                             const Color& background, const Lights& lights,
+                                             int threads) {
     const Camera camera(config);
     Image image(camera.image_width(), camera.image_height());
     RenderSettings settings;
     settings.threads = threads;
     settings.show_progress = false;
+    settings.lights = &lights;
 
     const auto start = std::chrono::steady_clock::now();
     const RenderStats stats = render(camera, scene, background, image, settings);
@@ -259,12 +261,12 @@ int main(int argc, char* argv[]) {
         const HittableList& world = loaded.world;
         const Color& background = loaded.background;
         CameraConfig config = loaded.camera;
-        
+
         config.image_width = spec.width;
         config.samples_per_pixel = spec.spp;
 
-        const BVHNode bvh_mid(world.objects(), BVHSplit::kMidpoint);
-        const BVHNode bvh_sah(world.objects(), BVHSplit::kSAH);
+        const BVH bvh_mid(world.objects(), BVHSplit::kMidpoint);
+        const BVH bvh_sah(world.objects(), BVHSplit::kSAH);
 
         std::vector<Result> row;
         for (const Config& c : kConfigs) {
@@ -293,8 +295,8 @@ int main(int argc, char* argv[]) {
             for (int n = 0; n < runs; ++n) {
                 std::cerr << spec.name << " | " << c.label << " | run " << (n + 1) << '/' << runs
                           << "... " << std::flush;
-                const auto [seconds, rays] =
-                    time_render(*scene, run_config, background, c.all_threads ? all_threads : 1);
+                const auto [seconds, rays] = time_render(
+                    *scene, run_config, background, loaded.lights, c.all_threads ? all_threads : 1);
                 times.push_back(seconds * scale);
                 rates.push_back(static_cast<double>(rays) / seconds / 1e6);
                 std::cerr << format_time(seconds, false) << '\n';
@@ -363,7 +365,8 @@ int main(int argc, char* argv[]) {
 
     md << "\n## Notes\n\n"
        << "- Speedup is Naive 1T over BVH SAH on all threads.\n"
-       << "- A ray is every ray traced: camera rays plus every bounce.\n"
+       << "- A ray is every ray traced: camera rays, every bounce and every shadow ray. Scenes "
+          "with light quads (Spheres, Cornell box) use next event estimation.\n"
        << "- `~` marks an estimate. Brute force on a mesh takes hours at full size, so naive mesh "
           "runs render a smaller 1 spp image of the same view and the time is scaled up by the "
           "camera sample count. Mrays/s is measured directly.\n"

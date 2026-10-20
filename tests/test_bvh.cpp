@@ -26,7 +26,7 @@ void check(bool ok, const char* name) {
 
 // Fire many random rays at both structures. The BVH must find exactly the same closest hit
 // as testing every object: same hit/miss, same t. That is what "renders identically" means.
-int count_mismatches(const HittableList& list, const BVHNode& bvh, int rays) {
+int count_mismatches(const HittableList& list, const BVH& bvh, int rays) {
     int mismatches = 0;
     const Interval all(0.001, kInfinity);
     for (int i = 0; i < rays; ++i) {
@@ -76,8 +76,8 @@ int main() {
     // A huge sphere like the scenes' floor: its box dwarfs everything else.
     list.add(std::make_shared<Sphere>(Point3{0, -1000, 0}, 990, nullptr));
 
-    const BVHNode sah(list.objects(), BVHSplit::kSAH);
-    const BVHNode midpoint(list.objects(), BVHSplit::kMidpoint);
+    const BVH sah(list.objects(), BVHSplit::kSAH);
+    const BVH midpoint(list.objects(), BVHSplit::kMidpoint);
 
     check(count_mismatches(list, sah, 20000) == 0, "SAH BVH matches brute force on 20k rays");
     check(count_mismatches(list, midpoint, 20000) == 0,
@@ -86,7 +86,7 @@ int main() {
     // ---------- Edge cases ----------
     HittableList one;
     one.add(std::make_shared<Sphere>(Point3{0, 0, -5}, 1, nullptr));
-    const BVHNode single(one.objects());
+    const BVH single(one.objects());
     HitRecord rec;
     check(single.hit(Ray(Point3{0, 0, 0}, Vec3{0, 0, -1}), Interval(0.001, kInfinity), rec) &&
               std::fabs(rec.t - 4.0) < 1e-12,
@@ -97,12 +97,12 @@ int main() {
     for (int i = 0; i < 50; ++i) {
         stacked.add(std::make_shared<Sphere>(Point3{0, 0, -5}, 0.5 + 0.01 * i, nullptr));
     }
-    const BVHNode stacked_bvh(stacked.objects());
+    const BVH stacked_bvh(stacked.objects());
     check(stacked_bvh.hit(Ray(Point3{0, 0, 0}, Vec3{0, 0, -1}), Interval(0.001, kInfinity), rec) &&
               std::fabs(rec.t - (5.0 - 0.99)) < 1e-9,
           "identical centroids: builds and finds the outermost sphere");
 
-    const BVHNode empty(std::vector<std::shared_ptr<Hittable>>{});
+    const BVH empty(std::vector<std::shared_ptr<Hittable>>{});
     check(!empty.hit(Ray(Point3{0, 0, 0}, Vec3{0, 0, -1}), Interval(0.001, kInfinity), rec),
           "empty BVH never hits");
 

@@ -195,21 +195,30 @@ std::shared_ptr<Material> find_material(const Materials& materials, const json& 
                 (defined.empty() ? " (no materials are defined)" : " (defined: " + defined + ")"));
 }
 
+// Adds a quad to the world. Glowing quads are also registered as lights, so the renderer can
+// sample them directly.
+void add_quad(Scene& scene, const Point3& corner, const Vec3& u, const Vec3& v,
+              const std::shared_ptr<Material>& mat) {
+    auto quad = std::make_shared<Quad>(corner, u, v, mat);
+    const Color e = mat->emitted();
+    if (e.x > 0.0 || e.y > 0.0 || e.z > 0.0) scene.lights.add(quad);
+    scene.world.add(std::move(quad));
+}
+
 // Axis-aligned box as 6 quads, added straight to the world so the BVH sees each face.
-void add_box(HittableList& world, const Point3& a, const Point3& b,
-             const std::shared_ptr<Material>& mat) {
+void add_box(Scene& scene, const Point3& a, const Point3& b, const std::shared_ptr<Material>& mat) {
     const Point3 lo{std::fmin(a.x, b.x), std::fmin(a.y, b.y), std::fmin(a.z, b.z)};
     const Point3 hi{std::fmax(a.x, b.x), std::fmax(a.y, b.y), std::fmax(a.z, b.z)};
     const Vec3 dx{hi.x - lo.x, 0, 0};
     const Vec3 dy{0, hi.y - lo.y, 0};
     const Vec3 dz{0, 0, hi.z - lo.z};
 
-    world.add(std::make_shared<Quad>(Point3{lo.x, lo.y, hi.z}, dx, dy, mat));   // front
-    world.add(std::make_shared<Quad>(Point3{hi.x, lo.y, hi.z}, -dz, dy, mat));  // right
-    world.add(std::make_shared<Quad>(Point3{hi.x, lo.y, lo.z}, -dx, dy, mat));  // back
-    world.add(std::make_shared<Quad>(Point3{lo.x, lo.y, lo.z}, dz, dy, mat));   // left
-    world.add(std::make_shared<Quad>(Point3{lo.x, hi.y, hi.z}, dx, -dz, mat));  // top
-    world.add(std::make_shared<Quad>(Point3{lo.x, lo.y, lo.z}, dx, dz, mat));   // bottom
+    add_quad(scene, Point3{lo.x, lo.y, hi.z}, dx, dy, mat);   // front
+    add_quad(scene, Point3{hi.x, lo.y, hi.z}, -dz, dy, mat);  // right
+    add_quad(scene, Point3{hi.x, lo.y, lo.z}, -dx, dy, mat);  // back
+    add_quad(scene, Point3{lo.x, lo.y, lo.z}, dz, dy, mat);   // left
+    add_quad(scene, Point3{lo.x, hi.y, hi.z}, dx, -dz, mat);  // top
+    add_quad(scene, Point3{lo.x, lo.y, lo.z}, dx, dz, mat);   // bottom
 }
 
 Transform read_transform(const json& j, const std::string& where) {
@@ -265,7 +274,8 @@ void add_mesh(HittableList& world, const json& obj, const std::string& where,
 }
 
 void read_objects(const json& j, const std::string& where, const Materials& materials,
-                  const std::string& base_dir, HittableList& world) {
+                  const std::string& base_dir, Scene& scene) {
+    HittableList& world = scene.world;
     if (!j.is_array()) fail(where, std::string("expected an array, got ") + j.type_name());
 
     for (std::size_t i = 0; i < j.size(); ++i) {
@@ -285,7 +295,7 @@ void read_objects(const json& j, const std::string& where, const Materials& mate
             const Vec3 u = to_vec3(require(obj, "u", w), field(w, "u"));
             const Vec3 v = to_vec3(require(obj, "v", w), field(w, "v"));
             if (cross(u, v).near_zero()) fail(w, "u and v must be non-zero and not parallel");
-            world.add(std::make_shared<Quad>(corner, u, v, find_material(materials, obj, w)));
+            add_quad(scene, corner, u, v, find_material(materials, obj, w));
         } else if (type == "triangle") {
             check_keys(obj, w, {"type", "v0", "v1", "v2", "material"});
             const Point3 v0 = to_vec3(require(obj, "v0", w), field(w, "v0"));
@@ -300,7 +310,7 @@ void read_objects(const json& j, const std::string& where, const Materials& mate
             if (a.x == b.x || a.y == b.y || a.z == b.z) {
                 fail(w, "box has zero size on at least one axis (use a quad for a flat panel)");
             }
-            add_box(world, a, b, find_material(materials, obj, w));
+            add_box(scene, a, b, find_material(materials, obj, w));
         } else if (type == "mesh") {
             add_mesh(world, obj, w, materials, base_dir);
         } else {
@@ -337,7 +347,7 @@ Scene parse_scene(const std::string& text, const std::string& base_dir, const st
         const Materials materials = root.contains("materials")
                                         ? read_materials(root.at("materials"), "materials")
                                         : Materials{};
-        read_objects(require(root, "objects", ""), "objects", materials, base_dir, scene.world);
+        read_objects(require(root, "objects", ""), "objects", materials, base_dir, scene);
     } catch (const SceneError& e) {
         throw SceneError(source + ": " + e.what());
     }
