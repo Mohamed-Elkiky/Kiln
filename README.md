@@ -218,7 +218,7 @@ The tree is stored **flat**:
 - **No recursion:** traversal is a loop with a fixed-size stack, and `1 / direction` is worked out once per ray, not once per box.
 - **Packed triangles:** triangles are copied into the BVH by value in leaf order and tested with a direct call instead of a virtual one.
 
-Against the pointer-based tree it replaced, that's 1.09x faster on the bunny and 1.19x on the dragon on one thread with MSVC (1.35x and 1.42x with GCC), with byte-identical output.
+Against the pointer-based tree it replaced, that's 1.12x faster on the bunny and 1.17x on the dragon on one thread with MSVC (1.35x and 1.42x with GCC), with byte-identical output.
 
 **Multithreading.**
 

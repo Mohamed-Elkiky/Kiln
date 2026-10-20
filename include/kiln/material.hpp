@@ -53,7 +53,7 @@ public:
 
     Color albedo() const override { return albedo_; }
     bool is_diffuse() const override { return true; }
-    
+        
 private:
     Color albedo_;
 };
