@@ -288,4 +288,4 @@ kiln/
 
 ## Contact
 
-Want to collaborate on Kiln or something else? Email me at moh.elkiky@gmail.com.
+Want to collaborate on Kiln or something else? Email me at moh.elkiky@gmail.com
