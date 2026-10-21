@@ -151,17 +151,22 @@ target_compile_definitions(kiln_bench PRIVATE
   KILN_CXX_FLAGS="${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_RELEASE}")
 
 # ---------- Tests ----------
+# doctest (external/doctest/doctest.h). Each tests/test_<name>.cpp is its own executable and its
+# own CTest test; they share one copy of doctest's runner and main() from kiln_test_main.
 enable_testing()
+
+add_library(kiln_test_main STATIC tests/test_main.cpp)
+target_link_libraries(kiln_test_main PUBLIC kiln_core)
 
 function(kiln_test name)
   add_executable(test_${name} tests/test_${name}.cpp)
-  target_link_libraries(test_${name} PRIVATE kiln_core)
+  target_link_libraries(test_${name} PRIVATE kiln_core kiln_test_main)
   kiln_warnings(test_${name})
   add_test(NAME ${name} COMMAND test_${name})
 endfunction()
 
 kiln_test(vec3)
-kiln_test(triangle)
+kiln_test(intersect)
 kiln_test(obj_loader)
 kiln_test(bvh)
 kiln_test(renderer)
@@ -169,6 +174,12 @@ kiln_test(scene_loader)
 kiln_test(denoise)
 kiln_test(progressive)
 target_link_libraries(test_denoise PRIVATE kiln_denoise)
+
+# The intersection tests fire axis-parallel rays built from constants, so MSVC's optimiser can
+# see the slab test's deliberate 1 / 0 (infinity, which the test relies on) and warns.
+if(MSVC)
+  target_compile_options(test_intersect PRIVATE /wd4723)
+endif()
 kiln_copy_oidn_dlls(test_denoise)
 
 target_compile_definitions(test_obj_loader PRIVATE

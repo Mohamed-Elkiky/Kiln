@@ -1,10 +1,9 @@
 #include <algorithm>
 #include <cmath>
-#include <cstdlib>
-#include <iostream>
 #include <stdexcept>
 #include <string>
 
+#include "doctest/doctest.h"
 #include "kiln/bvh.hpp"
 #include "kiln/camera.hpp"
 #include "kiln/denoise.hpp"
@@ -15,13 +14,6 @@
 using namespace kiln;
 
 namespace {
-
-int failures = 0;
-
-void check(bool ok, const std::string& name) {
-    std::cout << (ok ? "[PASS] " : "[FAIL] ") << name << '\n';
-    if (!ok) ++failures;
-}
 
 // Error in display space (clamped, gamma 2), like the PNG, so the bright light doesn't dominate.
 double mse(const Image& a, const Image& b) {
@@ -42,19 +34,16 @@ double mse(const Image& a, const Image& b) {
 
 }  // namespace
 
-int main() {
+TEST_CASE("without OIDN, denoise() throws a clear error") {
+    if (denoise_available()) return;  // built with OIDN: the next test covers it
+    Image img(4, 4);
+    CHECK_THROWS_AS(denoise(img, img, img), std::runtime_error);
+}
+
+TEST_CASE("with OIDN, denoising 8 spp cuts the error vs 256 spp by over 4x") {
     if (!denoise_available()) {
-        // Built without OIDN: --denoise must fail cleanly, never crash or silently do nothing.
-        Image img(4, 4);
-        bool threw = false;
-        try {
-            denoise(img, img, img);
-        } catch (const std::runtime_error&) {
-            threw = true;
-        }
-        check(threw, "without OIDN, denoise() throws a clear error");
-        std::cout << (failures == 0 ? "All tests passed\n" : "Some tests FAILED\n");
-        return failures == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
+        MESSAGE("built without OIDN: skipped");
+        return;
     }
 
     // Small Cornell box: noisy at 8 spp, reference at 256 spp.
@@ -81,8 +70,8 @@ int main() {
 
     const double before = mse(noisy, reference);
     const double after = mse(denoised, reference);
-    std::cout << "       MSE vs 256 spp: noisy " << before << ", denoised " << after << '\n';
-    check(after < before / 4.0, "denoising 8 spp cuts the error vs 256 spp by over 4x");
+    MESSAGE("MSE vs 256 spp: noisy " << before << ", denoised " << after);
+    CHECK(after < before / 4.0);
 
     bool finite = true;
     for (int y = 0; y < denoised.height(); ++y) {
@@ -91,17 +80,8 @@ int main() {
             finite = finite && std::isfinite(c.x) && std::isfinite(c.y) && std::isfinite(c.z);
         }
     }
-    check(finite, "denoised image has no NaN or inf");
+    CHECK(finite);  // no NaN or inf
 
     Image small(4, 4);
-    bool threw = false;
-    try {
-        denoise(small, albedo, normal);
-    } catch (const std::runtime_error&) {
-        threw = true;
-    }
-    check(threw, "mismatched sizes throw");
-
-    std::cout << (failures == 0 ? "All tests passed\n" : "Some tests FAILED\n");
-    return failures == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
+    CHECK_THROWS_AS(denoise(small, albedo, normal), std::runtime_error);  // mismatched sizes
 }

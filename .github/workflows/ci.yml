@@ -29,16 +29,20 @@ jobs:
       matrix:
         include:
           - name: Linux GCC + OIDN
+            slug: linux-gcc
             os: ubuntu-24.04
             flags: -DCMAKE_CXX_COMPILER=g++ -DCMAKE_COMPILE_WARNING_AS_ERROR=ON
             oidn: true
           - name: Linux Clang
+            slug: linux-clang
             os: ubuntu-24.04
             flags: -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_COMPILE_WARNING_AS_ERROR=ON
           - name: macOS Clang
+            slug: macos-clang
             os: macos-14
             flags: ""
           - name: Windows MSVC + preview
+            slug: windows-msvc
             os: windows-2022
             flags: -DKILN_PREVIEW=ON
     steps:
@@ -61,14 +65,21 @@ jobs:
       - name: Test
         run: ctest --test-dir build -C Release --output-on-failure
 
+            # A real end-to-end render on every OS. Download it from the run's Artifacts section.
       - name: Smoke render
         shell: bash
         run: |
           exe=build/kiln
           if [ -f build/Release/kiln.exe ]; then exe=build/Release/kiln.exe; fi
-          "$exe" scenes/cornell.json --samples 4 --width 100 -o ci-cornell.png
-          test -s ci-cornell.png
+          "$exe" scenes/cornell.json --samples 16 --width 200 -o cornell-${{ matrix.slug }}.png
+          test -s cornell-${{ matrix.slug }}.png
 
+      - name: Upload render
+        uses: actions/upload-artifact@v4
+        with:
+          name: cornell-${{ matrix.slug }}
+          path: cornell-${{ matrix.slug }}.png
+          if-no-files-found: error
   tsan:
     name: ThreadSanitizer
     runs-on: ubuntu-24.04

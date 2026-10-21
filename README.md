@@ -114,8 +114,11 @@ Every push and pull request runs [GitHub Actions](.github/workflows/ci.yml):
 | ThreadSanitizer | The threaded renderer and progressive preview, with zero data races |
 | clang-format | Every source file matches `.clang-format` (pinned to 18.1.8) |
 
-The tests check, among other things, that:
+Every build job also renders a small Cornell box and uploads the PNG, so each run's Artifacts section has a real image from every OS.
 
+The tests use [doctest](https://github.com/doctest/doctest): 41 test cases across 8 suites, one executable each. They check, among other things, that:
+
+- every primitive (sphere, triangle, quad, box) intersects rays correctly, from outside, from inside and edge-on
 - the BVH returns the same closest hit as brute force on 20k random rays
 - output is pixel-identical on 1, 4 and 16 threads, with and without NEE
 - NEE converges to the same brightness as plain path tracing, with less noise
@@ -234,7 +237,7 @@ kiln/
 ├── .github/        CI workflow
 ├── include/kiln/   Headers: maths, camera, materials, shapes, lights, BVH, renderer, scene loader
 ├── src/            Implementation, main and benchmark
-├── tests/          Unit tests and .obj fixtures
+├── tests/          Unit tests (doctest) and .obj fixtures
 ├── scenes/         JSON scene files
 ├── external/       Single-header libraries
 ├── assets/models/  Downloaded models (not committed)
@@ -284,7 +287,7 @@ kiln/
 - Turk, Levoy: *Zippered Polygon Meshes from Range Images*, SIGGRAPH (1994). The Stanford bunny.
 - The Stanford 3D Scanning Repository (bunny, XYZ RGB dragon) and common-3d-test-models (the `.obj` downloads, Utah teapot)
 
-**Third-party code:** stb_image_write (public domain / MIT), tinyobjloader (MIT), nlohmann/json (MIT), CLI11 (BSD-3-Clause), Intel Open Image Denoise (Apache-2.0, optional), SDL2 (zlib, optional)
+**Third-party code:** stb_image_write (public domain / MIT), tinyobjloader (MIT), nlohmann/json (MIT), CLI11 (BSD-3-Clause), doctest (MIT), Intel Open Image Denoise (Apache-2.0, optional), SDL2 (zlib, optional)
 
 ## Contact
 
