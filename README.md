@@ -291,4 +291,5 @@ kiln/
 
 ## Contact
 
-Want to collaborate on Kiln or something else? Email me at moh.elkiky@gmail.com
+Want to collaborate on Kiln?
+If there is any other open source of private projects that you might need me in please dm me on linkedin or email me at moh.elkiky@gmail.com
