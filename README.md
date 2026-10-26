@@ -169,6 +169,7 @@ cmake --build build --config Release
 | Scroll | Zoom in and out |
 | `R` | Reset the view |
 | `S` | Save the current image to `--out` |
+| `C` | Print the camera as a JSON block to paste into a scene file |
 | `Esc` | Quit |
 
 The window title shows the pass count, elapsed time and Mrays/s. Each pass adds one sample per pixel, so the image goes from noise to clean in seconds.

@@ -14,7 +14,8 @@ bool preview_available();
 
 // Opens a window that refines the scene live, one sample per pixel per pass, up to the camera's
 // samples_per_pixel. Drag to orbit, scroll to zoom, R resets the view, S saves a PNG to
-// out_path, Esc or closing the window quits. Returns a process exit code.
+// out_path, C prints the camera as JSON for a scene file, Esc or closing the window quits.
+// Returns a process exit code.
 int run_preview(const Hittable& world, const CameraConfig& config, const Color& background,
                 const RenderSettings& settings, const std::string& out_path);
 

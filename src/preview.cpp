@@ -56,6 +56,16 @@ struct Sdl {
     }
 };
 
+// Prints the current view as a "camera" block that can be pasted straight into a scene file.
+void print_camera(const CameraConfig& c) {
+    std::printf(
+        "\"camera\": { \"look_from\": [%.3f, %.3f, %.3f], \"look_at\": [%.3f, %.3f, %.3f], "
+        "\"up\": [%.3f, %.3f, %.3f], \"fov\": %.2f },\n",
+        c.look_from.x, c.look_from.y, c.look_from.z, c.look_at.x, c.look_at.y, c.look_at.z,
+        c.vup.x, c.vup.y, c.vup.z, c.vfov);
+    std::fflush(stdout);
+}
+
 void set_title(SDL_Window* window, const ProgressiveRenderer::Status& s) {
     char title[160];
     const double mrays = s.seconds > 0.0 ? static_cast<double>(s.rays) / s.seconds / 1e6 : 0.0;
@@ -112,7 +122,7 @@ int run_preview(const Hittable& world, const CameraConfig& config, const Color& 
     progressive.start(view, target);
 
     std::cout << "Preview: drag to orbit, scroll to zoom, R resets the view, S saves to "
-              << out_path << ", Esc quits\n";
+              << out_path << ", C prints the camera, Esc quits\n";
 
     std::vector<std::uint8_t> rgba;
     std::uint64_t seen = 0;
@@ -141,10 +151,14 @@ int run_preview(const Hittable& world, const CameraConfig& config, const Color& 
                         } else {
                             std::cerr << "error: failed to write " << out_path << '\n';
                         }
-                    } else if (e.key.keysym.sym == SDLK_r) {
+                                        } else if (e.key.keysym.sym == SDLK_r) {
                         view = config;
                         orbit = Orbit::from(view);
                         moved = true;
+                    } else if (e.key.keysym.sym == SDLK_c) {
+                        CameraConfig current = view;
+                        current.look_from = orbit.eye(view.look_at);
+                        print_camera(current);
                     }
                     break;
                 case SDL_MOUSEBUTTONDOWN:
