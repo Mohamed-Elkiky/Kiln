@@ -59,6 +59,19 @@ TEST_CASE("defaults and extras") {
     CHECK(boxed.lights.empty());
 }
 
+TEST_CASE("albedo can be a flat colour or a texture") {
+    const Scene scene = parse_scene("{ " + kCamera + R"(,
+        "materials": {
+          "flat":   { "type": "lambertian", "albedo": [0.5, 0.5, 0.5] },
+          "wood":   { "type": "lambertian", "albedo": { "texture": "wood", "colors": [[0.7, 0.5, 0.3], [0.3, 0.2, 0.1]], "axis": "z", "ring_scale": 8, "noise": 1.5 } },
+          "check":  { "type": "lambertian", "albedo": { "texture": "checker", "colors": [[1, 1, 1], [0, 0, 0]] } },
+          "stone":  { "type": "lambertian", "albedo": { "texture": "noise", "colors": [[0, 0, 0], [1, 1, 1]], "scale": 4, "seed": 2 } },
+          "normal": { "type": "lambertian", "albedo": { "texture": "normal" } },
+          "sunset": { "type": "metal", "fuzz": 0.1, "albedo": { "texture": "gradient", "axis": [0, 1, 0], "from": 0, "to": 1, "colors": [[1, 0, 0], [1, 1, 0], [1, 1, 1]] } } },
+        "objects": [] })");
+    CHECK(scene.world.objects().empty());
+}
+
 TEST_CASE("glowing quads and boxes are registered as lights") {
     const Scene glowing = parse_scene("{ " + kCamera + R"(,
         "materials": { "lamp": { "type": "light", "emit": [4, 4, 4] },
@@ -114,6 +127,18 @@ TEST_CASE("every error names the file and the exact field") {
          "settings.samples: expected a whole number >= 1"},
         {"typo in a section name", "{ " + kCamera + R"(, "setings": {}, "objects": [] })",
          "unknown field 'setings'"},
+                {"unknown texture",
+         "{ " + kCamera +
+             R"(, "materials": { "m": { "type": "lambertian", "albedo": { "texture": "marble" } } }, "objects": [] })",
+         "materials.m.albedo.texture: unknown texture 'marble'"},
+        {"gradient needs two colours",
+         "{ " + kCamera +
+             R"(, "materials": { "m": { "type": "lambertian", "albedo": { "texture": "gradient", "colors": [[1, 0, 0]], "from": 0, "to": 1 } } }, "objects": [] })",
+         "materials.m.albedo.colors: expected 2 or more colours"},
+        {"bad texture axis",
+         "{ " + kCamera +
+             R"(, "materials": { "m": { "type": "lambertian", "albedo": { "texture": "wood", "colors": [[1, 1, 1], [0, 0, 0]], "axis": "w" } } }, "objects": [] })",
+         "materials.m.albedo.axis: expected \"x\", \"y\", \"z\""},
         {"broken JSON reports the line", R"({ "camera": { "look_from": [0, 0, 0], )",
          "test.json: invalid JSON: parse error at line 1"},
     };

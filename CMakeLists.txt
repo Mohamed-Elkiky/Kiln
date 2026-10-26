@@ -173,6 +173,7 @@ kiln_test(renderer)
 kiln_test(scene_loader)
 kiln_test(denoise)
 kiln_test(progressive)
+kiln_test(texture)
 target_link_libraries(test_denoise PRIVATE kiln_denoise)
 
 # The intersection tests fire axis-parallel rays built from constants, so MSVC's optimiser can

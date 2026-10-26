@@ -85,7 +85,7 @@ public:
         }
 
         if (!rec.mat->is_specular()) {
-            first.record(rec.mat->albedo(), rec.normal);
+            first.record(rec.mat->albedo(rec), rec.normal);
             return shade(r, rec, depth, count_emission);
         }
 
@@ -94,7 +94,7 @@ public:
         Ray scattered;
         Color attenuation;
         if (!rec.mat->scatter(r, rec, attenuation, scattered)) {
-            first.record(rec.mat->albedo(), rec.normal);  // a mirror absorbed the ray
+            first.record(rec.mat->albedo(rec), rec.normal);  // a mirror absorbed the ray
             return emission;
         }
         first.tint = first.tint * attenuation;
@@ -158,7 +158,7 @@ private:
 
         const double weight =
             cos_surface * cos_light * light.area() * static_cast<double>(count) / (kPi * dist_sq);
-        return rec.mat->albedo() * light.material().emitted() * weight;
+        return rec.mat->albedo(rec) * light.material().emitted() * weight;
     }
 
     const Hittable& world_;

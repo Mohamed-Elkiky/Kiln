@@ -145,6 +145,19 @@ Every scene is a JSON file in `scenes/`:
 ```
 
 - **Materials:** `lambertian`, `metal` (`fuzz`), `dielectric` (`ior`), `light` (`emit`)
+- **Textures:** any `lambertian` or `metal` `albedo` can be a procedural texture instead of a colour. They're solid 3D textures, looked up at the hit point, so they need no UVs and work on any shape:
+
+| `texture` | Fields |
+|---|---|
+| `checker` | `colors` (2), `scale` |
+| `noise` | `colors` (2), `scale`, `seed` (Perlin turbulence) |
+| `wood` | `colors` (light, dark), `axis` (grain direction), `center`, `ring_scale`, `noise`, `seed` |
+| `normal` | none: colour from the direction the surface faces |
+| `gradient` | `colors` (2 or more), `axis`, `from`, `to` (heights along the axis) |
+
+```json
+"table": { "type": "lambertian", "albedo": { "texture": "wood", "colors": [[0.72, 0.5, 0.3], [0.38, 0.22, 0.1]], "axis": "x", "ring_scale": 6, "noise": 1.2 } }
+```
 - **Objects:** `sphere`, `quad`, `triangle`, `box`, `mesh` (`file`, plus `transform`: `scale`, `rotate_y`, `translate`)
 - Quads and boxes with a `light` material are sampled directly by next event estimation.
 - Mesh paths are relative to the scene file, and `//` comments are allowed.

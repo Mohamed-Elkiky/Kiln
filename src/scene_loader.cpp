@@ -3,6 +3,7 @@
 #include <chrono>
 #include <climits>
 #include <cmath>
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <initializer_list>
@@ -17,6 +18,7 @@
 #include "kiln/obj_loader.hpp"
 #include "kiln/quad.hpp"
 #include "kiln/sphere.hpp"
+#include "kiln/texture.hpp"
 #include "kiln/triangle.hpp"
 #include "nlohmann/json.hpp"
 
@@ -103,6 +105,115 @@ double to_aspect(const json& j, const std::string& where) {
     return to_positive(j[0], where + "[0]") / to_positive(j[1], where + "[1]");
 }
 
+// "x", "y", "z" or any non-zero vector, e.g. [1, 0, 1].
+Vec3 to_axis(const json& j, const std::string& where) {
+    if (j.is_string()) {
+        const std::string name = j.get<std::string>();
+        if (name == "x") return {1, 0, 0};
+        if (name == "y") return {0, 1, 0};
+        if (name == "z") return {0, 0, 1};
+        fail(where, "expected \"x\", \"y\", \"z\" or a direction like [1, 0, 1]");
+    }
+    const Vec3 axis = to_vec3(j, where);
+    if (axis.near_zero()) fail(where, "direction must not be [0, 0, 0]");
+    return axis;
+}
+
+// A list of colours, e.g. [[1, 0, 0], [0, 0, 1]].
+std::vector<Color> to_colors(const json& j, const std::string& where, std::size_t min_count,
+                             std::size_t max_count) {
+    const std::string count =
+        min_count == max_count ? std::to_string(min_count) : std::to_string(min_count) + " or more";
+    if (!j.is_array() || j.size() < min_count || j.size() > max_count) {
+        fail(where, "expected " + count + " colours, e.g. [[1, 0, 0], [0, 0, 1]]");
+    }
+    std::vector<Color> colors;
+    for (std::size_t i = 0; i < j.size(); ++i) {
+        colors.push_back(to_vec3(j[i], where + "[" + std::to_string(i) + "]"));
+    }
+    return colors;
+}
+
+std::uint32_t to_seed(const json& j, const std::string& where) {
+    if (!j.is_number_integer() || j.get<long long>() < 0 || j.get<long long>() > UINT32_MAX) {
+        fail(where, "expected a whole number >= 0");
+    }
+    return static_cast<std::uint32_t>(j.get<long long>());
+}
+
+// { "texture": "wood", ... } -> a procedural texture. See the README for every field.
+std::shared_ptr<Texture> read_texture(const json& j, const std::string& where) {
+    const std::string type = to_string(require(j, "texture", where), field(where, "texture"));
+    const auto colors = [&](std::size_t min_count, std::size_t max_count) {
+        return to_colors(require(j, "colors", where), field(where, "colors"), min_count, max_count);
+    };
+    const auto number = [&](const char* key, double fallback) {
+        return j.contains(key) ? to_positive(j.at(key), field(where, key)) : fallback;
+    };
+    const auto seed = [&] {
+        return j.contains("seed") ? to_seed(j.at("seed"), field(where, "seed")) : 0u;
+    };
+
+    if (type == "checker") {
+        check_keys(j, where, {"texture", "colors", "scale"});
+        const auto c = colors(2, 2);
+        return std::make_shared<CheckerTexture>(c[0], c[1], number("scale", 1.0));
+    }
+    if (type == "noise") {
+        check_keys(j, where, {"texture", "colors", "scale", "seed"});
+        const auto c = colors(2, 2);
+        return std::make_shared<NoiseTexture>(c[0], c[1], number("scale", 1.0), seed());
+    }
+    if (type == "wood") {
+        check_keys(j, where,
+                   {"texture", "colors", "axis", "center", "ring_scale", "noise", "seed"});
+        const auto c = colors(2, 2);
+        const Vec3 axis =
+            j.contains("axis") ? to_axis(j.at("axis"), field(where, "axis")) : Vec3{1, 0, 0};
+        const Point3 center = j.contains("center") ? to_vec3(j.at("center"), field(where, "center"))
+                                                   : Point3{0, 0, 0};
+        double noise = 1.0;
+        if (j.contains("noise")) {
+            noise = to_number(j.at("noise"), field(where, "noise"));
+            if (noise < 0.0) fail(field(where, "noise"), "must be 0 or more");
+        }
+        return std::make_shared<WoodTexture>(c[0], c[1], axis, center, number("ring_scale", 10.0),
+                                             noise, seed());
+    }
+    if (type == "normal") {
+        check_keys(j, where, {"texture"});
+        return std::make_shared<NormalTexture>();
+    }
+    if (type == "gradient") {
+        check_keys(j, where, {"texture", "colors", "axis", "from", "to"});
+        auto c = colors(2, 64);
+        const Vec3 axis =
+            j.contains("axis") ? to_axis(j.at("axis"), field(where, "axis")) : Vec3{0, 1, 0};
+        const double from = to_number(require(j, "from", where), field(where, "from"));
+        const double to = to_number(require(j, "to", where), field(where, "to"));
+        if (from == to) fail(field(where, "to"), "must be different from 'from'");
+        return std::make_shared<GradientTexture>(std::move(c), axis, from, to);
+    }
+    fail(field(where, "texture"),
+         "unknown texture '" + type + "' (expected checker, noise, wood, normal or gradient)");
+}
+
+// An "albedo" is either a flat colour [r, g, b] or a texture object.
+struct Albedo {
+    Color color{0.0, 0.0, 0.0};
+    std::shared_ptr<Texture> texture;  // null = flat colour
+};
+
+Albedo read_albedo(const json& j, const std::string& where) {
+    Albedo albedo;
+    if (j.is_object()) {
+        albedo.texture = read_texture(j, where);
+    } else {
+        albedo.color = to_vec3(j, where);
+    }
+    return albedo;
+}
+
 // ---------- Sections ----------
 
 void read_camera(const json& j, const std::string& where, CameraConfig& config) {
@@ -154,8 +265,9 @@ Materials read_materials(const json& j, const std::string& where) {
 
         if (type == "lambertian") {
             check_keys(m, w, {"type", "albedo"});
-            materials[item.key()] =
-                std::make_shared<Lambertian>(to_vec3(require(m, "albedo", w), field(w, "albedo")));
+            const Albedo a = read_albedo(require(m, "albedo", w), field(w, "albedo"));
+            materials[item.key()] = a.texture ? std::make_shared<Lambertian>(a.texture)
+                                              : std::make_shared<Lambertian>(a.color);
         } else if (type == "metal") {
             check_keys(m, w, {"type", "albedo", "fuzz"});
             double fuzz = 0.0;
@@ -163,8 +275,9 @@ Materials read_materials(const json& j, const std::string& where) {
                 fuzz = to_number(m.at("fuzz"), field(w, "fuzz"));
                 if (fuzz < 0.0 || fuzz > 1.0) fail(field(w, "fuzz"), "must be between 0 and 1");
             }
-            materials[item.key()] =
-                std::make_shared<Metal>(to_vec3(require(m, "albedo", w), field(w, "albedo")), fuzz);
+            const Albedo a = read_albedo(require(m, "albedo", w), field(w, "albedo"));
+            materials[item.key()] = a.texture ? std::make_shared<Metal>(a.texture, fuzz)
+                                              : std::make_shared<Metal>(a.color, fuzz);
         } else if (type == "dielectric") {
             check_keys(m, w, {"type", "ior"});
             materials[item.key()] =

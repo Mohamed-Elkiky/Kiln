@@ -1,10 +1,13 @@
 #pragma once
 
 #include <cmath>
+#include <memory>
+#include <utility>
 
 #include "kiln/hittable.hpp"
 #include "kiln/random.hpp"
 #include "kiln/ray.hpp"
+#include "kiln/texture.hpp"
 #include "kiln/vec3.hpp"
 
 namespace kiln {
@@ -21,8 +24,9 @@ public:
     // Light given off by the surface. Black for everything except lights.
     virtual Color emitted() const { return Color{0.0, 0.0, 0.0}; }
 
-    // Surface colour in [0, 1], ignoring lighting. The denoiser uses it as a guide image.
-    virtual Color albedo() const = 0;
+    // Surface colour in [0, 1] at this hit, ignoring lighting. Textured materials vary it over
+    // the surface. The denoiser uses it as a guide image, and NEE as the BRDF colour.
+    virtual Color albedo(const HitRecord& rec) const = 0;
 
     // Perfect mirrors and glass: they show what's behind them, so the denoiser's guides follow
     // the ray through them instead of stopping here.
@@ -37,6 +41,7 @@ public:
 class Lambertian : public Material {
 public:
     explicit Lambertian(const Color& albedo) : albedo_(albedo) {}
+    explicit Lambertian(std::shared_ptr<Texture> texture) : texture_(std::move(texture)) {}
 
     bool scatter(const Ray& /*r_in*/, const HitRecord& rec, Color& attenuation,
                  Ray& scattered) const override {
@@ -47,21 +52,27 @@ public:
         if (direction.near_zero()) direction = rec.normal;
 
         scattered = Ray(rec.p, direction);
-        attenuation = albedo_;
+        attenuation = albedo(rec);
         return true;
     }
 
-    Color albedo() const override { return albedo_; }
+    // A flat colour skips the texture lookup entirely, so untextured scenes run as before.
+    Color albedo(const HitRecord& rec) const override {
+        return texture_ ? texture_->value(rec) : albedo_;
+    }
     bool is_diffuse() const override { return true; }
 
 private:
-    Color albedo_;
+    Color albedo_{0.0, 0.0, 0.0};
+    std::shared_ptr<Texture> texture_;  // null = flat albedo_
 };
 
 // Shiny: reflects like a mirror, fuzz blurs the reflection.
 class Metal : public Material {
 public:
     Metal(const Color& albedo, double fuzz) : albedo_(albedo), fuzz_(fuzz < 1.0 ? fuzz : 1.0) {}
+    Metal(std::shared_ptr<Texture> texture, double fuzz)
+        : texture_(std::move(texture)), fuzz_(fuzz < 1.0 ? fuzz : 1.0) {}
 
     bool scatter(const Ray& r_in, const HitRecord& rec, Color& attenuation,
                  Ray& scattered) const override {
@@ -69,18 +80,21 @@ public:
         reflected = unit_vector(reflected) + fuzz_ * random_unit_vector();
 
         scattered = Ray(rec.p, reflected);
-        attenuation = albedo_;
+        attenuation = albedo(rec);
 
         // Fuzz can push the ray below the surface: absorb it instead.
         return dot(scattered.direction(), rec.normal) > 0.0;
     }
 
-    Color albedo() const override { return albedo_; }
+    Color albedo(const HitRecord& rec) const override {
+        return texture_ ? texture_->value(rec) : albedo_;
+    }
     bool is_specular() const override { return fuzz_ == 0.0; }
 
 private:
-    Color albedo_;
-    double fuzz_;  // 0 = perfect mirror, 1 = very blurry
+    Color albedo_{0.0, 0.0, 0.0};
+    std::shared_ptr<Texture> texture_;  // null = flat albedo_
+    double fuzz_;                       // 0 = perfect mirror, 1 = very blurry
 };
 
 // Glass / water / diamond: refracts through the surface, reflects at grazing angles.
@@ -113,7 +127,7 @@ public:
         return true;
     }
 
-    Color albedo() const override { return Color{1.0, 1.0, 1.0}; }
+    Color albedo(const HitRecord& /*rec*/) const override { return Color{1.0, 1.0, 1.0}; }
     bool is_specular() const override { return true; }
 
 private:
@@ -140,7 +154,7 @@ public:
     Color emitted() const override { return emit_; }
 
     // Lights are brighter than 1; the guide only needs the colour, clamped to [0, 1].
-    Color albedo() const override {
+    Color albedo(const HitRecord& /*rec*/) const override {
         return {std::fmin(emit_.x, 1.0), std::fmin(emit_.y, 1.0), std::fmin(emit_.z, 1.0)};
     }
 
