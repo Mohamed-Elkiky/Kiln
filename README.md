@@ -308,13 +308,13 @@ kiln/
 - [x] **Polish:** JSON scenes and CLI, live preview, denoising, next event estimation, flat BVH, CI
 - [x] **Showcase:** procedural textures, coloured glass, wireframe, grass generator, showcase scenes
 
-**Next**
+**Ideas for anyone who wants to take it further**
 
-- [ ] GPU path tracing (CUDA or Vulkan compute)
-- [ ] HDR environment lighting
-- [ ] Image textures with UV mapping
-- [ ] Multiple importance sampling and microfacet (GGX) materials
-- [ ] Rotation on every axis, and mesh instancing
+- GPU path tracing (CUDA or Vulkan compute)
+- HDR environment lighting
+- Image textures with UV mapping
+- Multiple importance sampling and microfacet (GGX) materials
+- Rotation on every axis, and mesh instancing
 
 ## References
 
