@@ -98,13 +98,30 @@ private:
 };
 
 // Glass / water / diamond: refracts through the surface, reflects at grazing angles.
+//
+// Coloured glass (optional): light travelling through the glass is absorbed with distance
+// (Beer's law), so thin parts stay bright and thick parts go deep. `absorption` is the colour
+// left after travelling 1 / density units through the glass; with no absorption set, glass
+// absorbs nothing, exactly as before.
 class Dielectric : public Material {
 public:
     explicit Dielectric(double refraction_index) : refraction_index_(refraction_index) {}
+    Dielectric(double refraction_index, const Color& absorption, double density)
+        : refraction_index_(refraction_index),
+          sigma_{-std::log(absorption.x) * density, -std::log(absorption.y) * density,
+                 -std::log(absorption.z) * density},
+          absorbs_(true) {}
 
     bool scatter(const Ray& r_in, const HitRecord& rec, Color& attenuation,
                  Ray& scattered) const override {
-        attenuation = Color{1.0, 1.0, 1.0};  // glass absorbs nothing
+        attenuation = Color{1.0, 1.0, 1.0};
+        // Hitting the inside of the surface means r_in has just crossed the glass: tint it by
+        // the distance it travelled, exp(-sigma * distance).
+        if (absorbs_ && !rec.front_face) {
+            const double d = rec.t * r_in.direction().length();
+            attenuation =
+                Color{std::exp(-sigma_.x * d), std::exp(-sigma_.y * d), std::exp(-sigma_.z * d)};
+        }
 
         // Entering the glass: air (1.0) -> glass. Leaving: glass -> air.
         const double ri = rec.front_face ? (1.0 / refraction_index_) : refraction_index_;
@@ -139,6 +156,8 @@ private:
     }
 
     double refraction_index_;  // glass 1.5, water 1.33, diamond 2.4
+    Vec3 sigma_;              // absorption coefficients
+    bool absorbs_;            // whether the material absorbs light
 };
 
 // Light source: glows with a colour, never scatters. Values above 1 = brighter.

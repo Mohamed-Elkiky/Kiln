@@ -57,6 +57,8 @@ public:
         rec.p = r.at(t);
         rec.mat = mat_.get();
         rec.object = this;
+        rec.barycentric = Vec3{1.0 - u - v, u, v};
+        rec.on_triangle = true;
 
         // Barycentric weights (1 - u - v, u, v) blend the vertex normals for smooth shading.
         const Vec3 outward_normal = has_vertex_normals_

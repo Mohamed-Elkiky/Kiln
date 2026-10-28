@@ -207,4 +207,24 @@ private:
     double from_, to_;
 };
 
+// Triangle edges drawn as lines: the base colour inside each triangle, the line colour within
+// `width` of an edge. `width` is a fraction of the triangle (0.05 = 5% of the way to the
+// opposite corner), so lines scale with the mesh. Anything that isn't a triangle shows the base.
+class WireframeTexture final : public Texture {
+public:
+    WireframeTexture(const Color& base, const Color& line, double width)
+        : base_(base), line_(line), width_(width) {}
+
+    Color value(const HitRecord& rec) const override {
+        if (!rec.on_triangle) return base_;
+        const Vec3& b = rec.barycentric;
+        // The smallest weight is how close the hit is to the nearest edge (0 = on it).
+        return std::fmin(b.x, std::fmin(b.y, b.z)) < width_ ? line_ : base_;
+    }
+
+private:
+    Color base_, line_;
+    double width_;
+};
+
 }  // namespace kiln

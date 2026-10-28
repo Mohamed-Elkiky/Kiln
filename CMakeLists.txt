@@ -75,6 +75,7 @@ endif()
 add_library(kiln_core STATIC
   src/bvh.cpp
   src/camera.cpp
+  src/grass.cpp
   src/image.cpp
   src/obj_loader.cpp
   src/progressive.cpp
@@ -174,6 +175,8 @@ kiln_test(scene_loader)
 kiln_test(denoise)
 kiln_test(progressive)
 kiln_test(texture)
+kiln_test(material)
+kiln_test(grass)
 target_link_libraries(test_denoise PRIVATE kiln_denoise)
 
 # The intersection tests fire axis-parallel rays built from constants, so MSVC's optimiser can

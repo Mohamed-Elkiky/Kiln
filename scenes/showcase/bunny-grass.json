@@ -1,0 +1,35 @@
+{
+  // Sir Hops-a-Lot in amber glass, sitting in a field of procedurally grown grass.
+  "camera": { "look_from": [0.3, 0.42, 5.2], "look_at": [0.05, 0.55, 0], "fov": 27 },
+  "settings": { "width": 1920, "aspect_ratio": [16, 9], "samples": 1000, "depth": 30,
+                "background": [0.75, 0.82, 0.95] },
+  "materials": {
+    "soil":   { "type": "lambertian", "albedo": [0.1, 0.16, 0.05] },
+    "amber":  { "type": "dielectric", "ior": 1.5, "absorption": [0.85, 0.45, 0.08], "density": 2.5 },
+    "grass1": { "type": "lambertian", "albedo": [0.12, 0.38, 0.06] },
+    "grass2": { "type": "lambertian", "albedo": [0.22, 0.48, 0.09] },
+    "grass3": { "type": "lambertian", "albedo": [0.35, 0.52, 0.12] },
+    "sun":    { "type": "light", "emit": [14, 12.5, 10] }
+  },
+  "objects": [
+    { "type": "sphere", "center": [0, -1000, 0], "radius": 1000, "material": "soil" },
+    {
+      "type": "mesh",
+      "file": "../../assets/models/stanford-bunny.obj",
+      "transform": { "scale": 10, "rotate_y": 20, "translate": [0.17, -0.33, 0] },
+      "material": "amber"
+    },
+    {
+      // Near field: dense and short, with a clearing so no blade pokes through the glass.
+      "type": "grass", "area": [[-2.5, -3], [2.5, 6]], "count": 180000, "height": 0.16, "width": 0.012,
+      "bend": 0.35, "seed": 1, "materials": ["grass1", "grass2", "grass3"],
+      "clear": [[0.05, -0.05, 0.3]]
+    },
+    {
+      // Far field: sparser, taller blades out to the horizon.
+      "type": "grass", "area": [[-9, -16], [9, -3]], "count": 120000, "height": 0.3, "width": 0.025,
+      "bend": 0.4, "seed": 2, "materials": ["grass1", "grass2", "grass3"]
+    },
+    { "type": "quad", "corner": [-3, 4, 1], "u": [2, 0, 0], "v": [0, 0, 2], "material": "sun" }
+  ]
+}

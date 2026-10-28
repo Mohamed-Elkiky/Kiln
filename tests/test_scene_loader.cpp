@@ -59,14 +59,16 @@ TEST_CASE("defaults and extras") {
     CHECK(boxed.lights.empty());
 }
 
-TEST_CASE("albedo can be a flat colour or a texture") {
+TEST_CASE("materials accept textures and coloured glass") {
     const Scene scene = parse_scene("{ " + kCamera + R"(,
         "materials": {
           "flat":   { "type": "lambertian", "albedo": [0.5, 0.5, 0.5] },
           "wood":   { "type": "lambertian", "albedo": { "texture": "wood", "colors": [[0.7, 0.5, 0.3], [0.3, 0.2, 0.1]], "axis": "z", "ring_scale": 8, "noise": 1.5 } },
           "check":  { "type": "lambertian", "albedo": { "texture": "checker", "colors": [[1, 1, 1], [0, 0, 0]] } },
           "stone":  { "type": "lambertian", "albedo": { "texture": "noise", "colors": [[0, 0, 0], [1, 1, 1]], "scale": 4, "seed": 2 } },
-          "normal": { "type": "lambertian", "albedo": { "texture": "normal" } },
+            "normal": { "type": "lambertian", "albedo": { "texture": "normal" } },
+          "wire":   { "type": "lambertian", "albedo": { "texture": "wireframe", "colors": [[0.9, 0.9, 0.9], [0.1, 0.1, 0.1]], "width": 0.05 } },
+          "amber":  { "type": "dielectric", "ior": 1.5, "absorption": [0.9, 0.55, 0.15], "density": 2 },
           "sunset": { "type": "metal", "fuzz": 0.1, "albedo": { "texture": "gradient", "axis": [0, 1, 0], "from": 0, "to": 1, "colors": [[1, 0, 0], [1, 1, 0], [1, 1, 1]] } } },
         "objects": [] })");
     CHECK(scene.world.objects().empty());
@@ -127,7 +129,7 @@ TEST_CASE("every error names the file and the exact field") {
          "settings.samples: expected a whole number >= 1"},
         {"typo in a section name", "{ " + kCamera + R"(, "setings": {}, "objects": [] })",
          "unknown field 'setings'"},
-                {"unknown texture",
+                    {"unknown texture",
          "{ " + kCamera +
              R"(, "materials": { "m": { "type": "lambertian", "albedo": { "texture": "marble" } } }, "objects": [] })",
          "materials.m.albedo.texture: unknown texture 'marble'"},
@@ -139,6 +141,14 @@ TEST_CASE("every error names the file and the exact field") {
          "{ " + kCamera +
              R"(, "materials": { "m": { "type": "lambertian", "albedo": { "texture": "wood", "colors": [[1, 1, 1], [0, 0, 0]], "axis": "w" } } }, "objects": [] })",
          "materials.m.albedo.axis: expected \"x\", \"y\", \"z\""},
+                {"glass absorption out of range",
+         "{ " + kCamera +
+             R"(, "materials": { "m": { "type": "dielectric", "ior": 1.5, "absorption": [0, 0.5, 1] } }, "objects": [] })",
+         "materials.m.absorption: each channel must be above 0 and at most 1"},
+        {"glass density without absorption",
+         "{ " + kCamera +
+             R"(, "materials": { "m": { "type": "dielectric", "ior": 1.5, "density": 2 } }, "objects": [] })",
+         "materials.m.density: needs 'absorption' too"},
         {"broken JSON reports the line", R"({ "camera": { "look_from": [0, 0, 0], )",
          "test.json: invalid JSON: parse error at line 1"},
     };

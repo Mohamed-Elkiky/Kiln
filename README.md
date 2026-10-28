@@ -21,7 +21,38 @@ No game engine, no graphics API. Every pixel is computed by simulating how light
 - **JSON scene files and a real CLI**: change any render without recompiling, with errors that point at the exact field
 - **Neural denoising** with Intel Open Image Denoise: 16 samples per pixel looks close to 500 (`--denoise`)
 - **Live preview window** (SDL2): watch the image refine from noise to clean, and drag to orbit the camera (`--preview`)
+- **Procedural textures**: checker, Perlin noise, wood, normal, gradient and wireframe. All are solid 3D textures, so they need no UVs
+- **Coloured glass** with Beer's law absorption: light is tinted by how far it travels through the glass
+- **Grass generator**: hundreds of thousands of curved, tapered blades from one scene object, the same field for the same seed
 - **Tested and benchmarked**: unit tests with CTest, a benchmark harness, and CI on Linux (GCC, Clang), macOS and Windows with ThreadSanitizer and clang-format checks
+
+## Showcase
+
+![Gold dragon at a torii gate](renders/showcase-dragon-shrine.png)
+
+**Dragon at the shrine.** The 250k-triangle XYZ RGB dragon in polished gold, at dusk in front of a torii gate built from 9 boxes. The gravel and stepping stones are Perlin noise textures. 1920x1080, 1000 spp
+
+![Amber glass bunny sitting in grass](renders/showcase-bunny-grass.png)
+
+**Sir Hops-a-Lot in the grass.** Amber glass with Beer's law absorption: the thin ears glow and the thick body goes deep. He sits in 240,000 procedurally grown blades of grass, 1.27 million triangles in all, through the same BVH. 1920x1080, 1000 spp
+
+![Five looks, one mesh: 69k triangles](renders/showcase-bunny-looks.jpg)
+
+**Five looks, one mesh: 69k triangles.** Same camera, light and pose; only the material changes. Emerald glass, normal shading, wireframe, rose gold and a sunset gradient. Open it full size to see every triangle in the wireframe.
+
+![Chrome teapot on a wooden table](renders/showcase-teapot-table.png)
+
+**Teapot on the table.** A chrome Utah teapot on a table with a procedural wood texture, its grain running along the top and reflected in the pot. 1920x1080, 1000 spp
+
+Every scene is in `scenes/showcase/`. To reproduce, from the repo root (Windows paths shown):
+
+```powershell
+kiln scenes\showcase\dragon-shrine.json -o renders\showcase-dragon-shrine.png
+kiln scenes\showcase\bunny-grass.json -o renders\showcase-bunny-grass.png
+kiln scenes\showcase\teapot-table.json -o renders\showcase-teapot-table.png
+foreach ($l in "glass", "normal", "wireframe", "rose-gold", "gradient") { kiln scenes\showcase\bunny-looks\$l.json -o renders\bunny-look-$l.png }
+python scripts\make_looks_strip.py
+```
 
 ## Progress
 
@@ -116,7 +147,7 @@ Every push and pull request runs [GitHub Actions](.github/workflows/ci.yml):
 
 Every build job also renders a small Cornell box and uploads the PNG, so each run's Artifacts section has a real image from every OS.
 
-The tests use [doctest](https://github.com/doctest/doctest): 41 test cases across 8 suites, one executable each. They check, among other things, that:
+The tests use [doctest](https://github.com/doctest/doctest): 48 test cases across 11 suites, one executable each. They check, among other things, that:
 
 - every primitive (sphere, triangle, quad, box) intersects rays correctly, from outside, from inside and edge-on
 - the BVH returns the same closest hit as brute force on 20k random rays
@@ -124,6 +155,10 @@ The tests use [doctest](https://github.com/doctest/doctest): 41 test cases acros
 - NEE converges to the same brightness as plain path tracing, with less noise
 - denoising 8 spp cuts the error against a 256 spp reference by over 4x
 - every scene file error names the exact field
+- textures are deterministic and stay in range, and a flat colour renders byte-identical through the texture path
+- coloured glass darkens with path length, and glass with no absorption is unchanged
+- the wireframe texture finds triangle edges from real ray hits
+- the same grass seed always grows the same field, inside its area and outside its clearings
 
 ## Scene files
 
@@ -144,7 +179,7 @@ Every scene is a JSON file in `scenes/`:
 }
 ```
 
-- **Materials:** `lambertian`, `metal` (`fuzz`), `dielectric` (`ior`), `light` (`emit`)
+- **Materials:** `lambertian`, `metal` (`fuzz`), `dielectric` (`ior`, plus optional `absorption` colour and `density` for coloured glass), `light` (`emit`)
 - **Textures:** any `lambertian` or `metal` `albedo` can be a procedural texture instead of a colour. They're solid 3D textures, looked up at the hit point, so they need no UVs and work on any shape:
 
 | `texture` | Fields |
@@ -154,11 +189,13 @@ Every scene is a JSON file in `scenes/`:
 | `wood` | `colors` (light, dark), `axis` (grain direction), `center`, `ring_scale`, `noise`, `seed` |
 | `normal` | none: colour from the direction the surface faces |
 | `gradient` | `colors` (2 or more), `axis`, `from`, `to` (heights along the axis) |
+| `wireframe` | `colors` (base, line), `width` (fraction of each triangle). Draws triangle edges; other shapes show the base colour |
 
 ```json
 "table": { "type": "lambertian", "albedo": { "texture": "wood", "colors": [[0.72, 0.5, 0.3], [0.38, 0.22, 0.1]], "axis": "x", "ring_scale": 6, "noise": 1.2 } }
 ```
-- **Objects:** `sphere`, `quad`, `triangle`, `box`, `mesh` (`file`, plus `transform`: `scale`, `rotate_y`, `translate`)
+- **Objects:** `sphere`, `quad`, `triangle`, `box`, `mesh` (`file`, plus `transform`: `scale`, `rotate_y`, `translate`), `grass`
+- **Grass:** `area` (`[[x, z], [x, z]]`), `count`, `materials` (a list, picked at random per blade), and optional `ground`, `height`, `width`, `bend`, `seed`, and `clear` (circles `[x, z, radius]` where nothing grows, e.g. under a model)
 - Quads and boxes with a `light` material are sampled directly by next event estimation.
 - Mesh paths are relative to the scene file, and `//` comments are allowed.
 
@@ -252,7 +289,8 @@ kiln/
 ├── include/kiln/   Headers: maths, camera, materials, shapes, lights, BVH, renderer, scene loader
 ├── src/            Implementation, main and benchmark
 ├── tests/          Unit tests (doctest) and .obj fixtures
-├── scenes/         JSON scene files
+├── scenes/         JSON scene files (showcase/ for the gallery)
+├── scripts/        Five-looks strip builder
 ├── external/       Single-header libraries
 ├── assets/models/  Downloaded models (not committed)
 ├── renders/        Milestone renders
@@ -271,6 +309,12 @@ kiln/
   - [x] Next event estimation
   - [x] Flat BVH
   - [x] CI
+- [x] **Sprint 5:** Showcase
+  - [x] Procedural textures
+  - [x] Coloured glass
+  - [x] Wireframe
+  - [x] Grass generator
+  - [x] Showcase scenes
 
 ## References
 

@@ -10,6 +10,7 @@
 #include "kiln/renderer.hpp"
 #include "kiln/sphere.hpp"
 #include "kiln/texture.hpp"
+#include "kiln/triangle.hpp"
 
 using namespace kiln;
 
@@ -50,6 +51,7 @@ std::vector<std::shared_ptr<Texture>> every_texture() {
         std::make_shared<NormalTexture>(),
         std::make_shared<GradientTexture>(std::vector<Color>{black, Color{1, 0, 0}, white},
                                           Vec3{0, 1, 0}, -1.0, 1.0),
+        std::make_shared<WireframeTexture>(black, white, 0.05),
     };
 }
 
@@ -165,4 +167,31 @@ TEST_CASE("a flat-colour texture renders exactly like a flat colour") {
                       render_sphere(std::make_shared<Lambertian>(solid))));
     CHECK(same_pixels(render_sphere(std::make_shared<Metal>(c, 0.2)),
                       render_sphere(std::make_shared<Metal>(solid, 0.2))));
+}
+
+TEST_CASE("wireframe draws triangle edges") {
+    const Color base{0.9, 0.9, 0.9};
+    const Color line{0.1, 0.1, 0.1};
+    const WireframeTexture wire(base, line, 0.05);
+    const Triangle tri(Point3{0, 0, 0}, Point3{1, 0, 0}, Point3{0, 1, 0}, nullptr);
+
+    // Fire a ray straight down the z axis at (x, y) and shade the real hit record.
+    const auto shade = [&](double x, double y) {
+        HitRecord rec;
+        REQUIRE(tri.hit(Ray(Point3{x, y, 1}, Vec3{0, 0, -1}), Interval(0.001, 10.0), rec));
+        CHECK(rec.on_triangle);
+        CHECK(rec.barycentric.x + rec.barycentric.y + rec.barycentric.z == doctest::Approx(1.0));
+        return wire.value(rec);
+    };
+
+    CHECK(shade(1.0 / 3.0, 1.0 / 3.0).x == base.x);  // centre
+    CHECK(shade(0.5, 0.01).x == line.x);             // next to the bottom edge
+    CHECK(shade(0.01, 0.5).x == line.x);             // next to the left edge
+    CHECK(shade(0.49, 0.49).x == line.x);            // next to the long edge
+    CHECK(shade(0.2, 0.2).x == base.x);              // inside, clear of every edge
+
+    // Not a triangle: just the base colour.
+    HitRecord sphere_hit;
+    sphere_hit.p = Point3{0, 0, 0};
+    CHECK(wire.value(sphere_hit).x == base.x);
 }

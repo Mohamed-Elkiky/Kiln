@@ -11,9 +11,11 @@
 #include <map>
 #include <memory>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
+#include "kiln/grass.hpp"
 #include "kiln/material.hpp"
 #include "kiln/obj_loader.hpp"
 #include "kiln/quad.hpp"
@@ -184,6 +186,16 @@ std::shared_ptr<Texture> read_texture(const json& j, const std::string& where) {
         check_keys(j, where, {"texture"});
         return std::make_shared<NormalTexture>();
     }
+    if (type == "wireframe") {
+        check_keys(j, where, {"texture", "colors", "width"});
+        const auto c = colors(2, 2);
+        double width = 0.04;
+        if (j.contains("width")) {
+            width = to_positive(j.at("width"), field(where, "width"));
+            if (width >= 1.0 / 3.0) fail(field(where, "width"), "must be below 0.333");
+        }
+        return std::make_shared<WireframeTexture>(c[0], c[1], width);
+    }
     if (type == "gradient") {
         check_keys(j, where, {"texture", "colors", "axis", "from", "to"});
         auto c = colors(2, 64);
@@ -195,7 +207,8 @@ std::shared_ptr<Texture> read_texture(const json& j, const std::string& where) {
         return std::make_shared<GradientTexture>(std::move(c), axis, from, to);
     }
     fail(field(where, "texture"),
-         "unknown texture '" + type + "' (expected checker, noise, wood, normal or gradient)");
+        "unknown texture '" + type +
+             "' (expected checker, noise, wood, normal, gradient or wireframe)");
 }
 
 // An "albedo" is either a flat colour [r, g, b] or a texture object.
@@ -279,9 +292,21 @@ Materials read_materials(const json& j, const std::string& where) {
             materials[item.key()] = a.texture ? std::make_shared<Metal>(a.texture, fuzz)
                                               : std::make_shared<Metal>(a.color, fuzz);
         } else if (type == "dielectric") {
-            check_keys(m, w, {"type", "ior"});
-            materials[item.key()] =
-                std::make_shared<Dielectric>(to_positive(require(m, "ior", w), field(w, "ior")));
+                        check_keys(m, w, {"type", "ior", "absorption", "density"});
+            const double ior = to_positive(require(m, "ior", w), field(w, "ior"));
+            if (m.contains("absorption")) {
+                const Color tint = to_vec3(m.at("absorption"), field(w, "absorption"));
+                if (!(tint.x > 0.0 && tint.y > 0.0 && tint.z > 0.0 && tint.x <= 1.0 &&
+                      tint.y <= 1.0 && tint.z <= 1.0)) {
+                    fail(field(w, "absorption"), "each channel must be above 0 and at most 1");
+                }
+                const double density =
+                    m.contains("density") ? to_positive(m.at("density"), field(w, "density")) : 1.0;
+                materials[item.key()] = std::make_shared<Dielectric>(ior, tint, density);
+            } else {
+                if (m.contains("density")) fail(field(w, "density"), "needs 'absorption' too");
+                materials[item.key()] = std::make_shared<Dielectric>(ior);
+            }
         } else if (type == "light") {
             check_keys(m, w, {"type", "emit"});
             materials[item.key()] =
@@ -386,6 +411,80 @@ void add_mesh(HittableList& world, const json& obj, const std::string& where,
     std::clog << "Loaded " << path << ": " << triangles.size() << " triangles in " << ms << " ms\n";
 }
 
+// A field of grass blades over a rectangle on the ground. See GrassSettings for every field.
+void add_grass(HittableList& world, const json& obj, const std::string& where,
+               const Materials& materials) {
+    check_keys(obj, where,
+               {"type", "area", "ground", "count", "height", "width", "bend", "seed", "materials",
+                "clear"});
+
+    GrassSettings s;
+    const std::string wa = field(where, "area");
+    const json& area = require(obj, "area", where);
+    if (!area.is_array() || area.size() != 2 || !area[0].is_array() || area[0].size() != 2 ||
+        !area[1].is_array() || area[1].size() != 2) {
+        fail(wa, "expected two corners [[x, z], [x, z]]");
+    }
+    const double x0 = to_number(area[0][0], wa + "[0][0]");
+    const double z0 = to_number(area[0][1], wa + "[0][1]");
+    const double x1 = to_number(area[1][0], wa + "[1][0]");
+    const double z1 = to_number(area[1][1], wa + "[1][1]");
+    if (x0 == x1 || z0 == z1) fail(wa, "area has zero size");
+    s.x_min = std::fmin(x0, x1);
+    s.x_max = std::fmax(x0, x1);
+    s.z_min = std::fmin(z0, z1);
+    s.z_max = std::fmax(z0, z1);
+
+    s.count = to_count(require(obj, "count", where), field(where, "count"));
+    if (obj.contains("ground")) s.ground = to_number(obj.at("ground"), field(where, "ground"));
+    if (obj.contains("height")) s.height = to_positive(obj.at("height"), field(where, "height"));
+    if (obj.contains("width")) s.width = to_positive(obj.at("width"), field(where, "width"));
+    if (obj.contains("bend")) {
+        s.bend = to_number(obj.at("bend"), field(where, "bend"));
+        if (s.bend < 0.0) fail(field(where, "bend"), "must be 0 or more");
+    }
+    if (obj.contains("seed")) s.seed = to_seed(obj.at("seed"), field(where, "seed"));
+
+    if (obj.contains("clear")) {
+        const std::string wc = field(where, "clear");
+        const json& clear = obj.at("clear");
+        if (!clear.is_array()) fail(wc, "expected a list of circles [[x, z, radius], ...]");
+        for (std::size_t i = 0; i < clear.size(); ++i) {
+            const std::string wi = wc + "[" + std::to_string(i) + "]";
+            if (!clear[i].is_array() || clear[i].size() != 3) fail(wi, "expected [x, z, radius]");
+            s.clearings.push_back({to_number(clear[i][0], wi + "[0]"),
+                                   to_number(clear[i][1], wi + "[1]"),
+                                   to_positive(clear[i][2], wi + "[2]")});
+        }
+    }
+
+    const std::string wm = field(where, "materials");
+    const json& names = require(obj, "materials", where);
+    if (!names.is_array() || names.empty()) fail(wm, "expected a list of material names");
+    std::vector<std::shared_ptr<Material>> mats;
+    for (std::size_t i = 0; i < names.size(); ++i) {
+        const std::string wi = wm + "[" + std::to_string(i) + "]";
+        const std::string name = to_string(names[i], wi);
+        const auto it = materials.find(name);
+        if (it == materials.end()) fail(wi, "unknown material '" + name + "'");
+        mats.push_back(it->second);
+    }
+
+    const auto start = std::chrono::steady_clock::now();
+    GrassField grass;
+    try {
+        grass = make_grass(s, mats);
+    } catch (const std::invalid_argument& e) {
+        fail(field(where, "clear"), e.what());
+    }
+    const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                        std::chrono::steady_clock::now() - start)
+                        .count();
+    for (const auto& tri : grass.triangles) world.add(tri);
+    std::clog << "Grew " << s.count << " blades of grass (" << grass.triangles.size()
+              << " triangles) in " << ms << " ms\n";
+}
+
 void read_objects(const json& j, const std::string& where, const Materials& materials,
                   const std::string& base_dir, Scene& scene) {
     HittableList& world = scene.world;
@@ -426,9 +525,11 @@ void read_objects(const json& j, const std::string& where, const Materials& mate
             add_box(scene, a, b, find_material(materials, obj, w));
         } else if (type == "mesh") {
             add_mesh(world, obj, w, materials, base_dir);
+        } else if (type == "grass") {
+            add_grass(world, obj, w, materials);
         } else {
             fail(field(w, "type"), "unknown object type '" + type +
-                                       "' (expected sphere, quad, triangle, box or mesh)");
+                                       "' (expected sphere, quad, triangle, box, mesh or grass)");
         }
     }
 }

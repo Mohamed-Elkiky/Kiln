@@ -151,7 +151,7 @@ int run_preview(const Hittable& world, const CameraConfig& config, const Color& 
                         } else {
                             std::cerr << "error: failed to write " << out_path << '\n';
                         }
-                                        } else if (e.key.keysym.sym == SDLK_r) {
+                    } else if (e.key.keysym.sym == SDLK_r) {
                         view = config;
                         orbit = Orbit::from(view);
                         moved = true;

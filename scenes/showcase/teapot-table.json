@@ -1,0 +1,38 @@
+{
+  // A chrome Utah teapot on a wooden table. The wood is a procedural texture with its grain
+  // running along the tabletop; the camera sits low so the teapot reflects the table.
+  "camera": { "look_from": [0.95, 0.98, 2.2], "look_at": [0.0, 0.92, 0.0], "fov": 30 },
+  "settings": { "width": 1920, "aspect_ratio": [16, 9], "samples": 1000, "depth": 30,
+                "background": [0.02, 0.02, 0.025] },
+  "materials": {
+    "wood":   { "type": "lambertian", "albedo": { "texture": "wood", "colors": [[0.74, 0.48, 0.26], [0.3, 0.15, 0.06]], "axis": "x", "center": [0, 0.35, -0.9], "ring_scale": 9, "noise": 1.4, "seed": 5 } },
+    "legs":   { "type": "lambertian", "albedo": { "texture": "wood", "colors": [[0.62, 0.4, 0.21], [0.32, 0.17, 0.07]], "axis": "y", "ring_scale": 14, "noise": 1.0, "seed": 6 } },
+    "floor":  { "type": "lambertian", "albedo": [0.22, 0.2, 0.19] },
+    "wall":   { "type": "lambertian", "albedo": [0.55, 0.52, 0.48] },
+    "chrome": { "type": "metal", "albedo": [0.9, 0.9, 0.92], "fuzz": 0.02 },
+    "light":  { "type": "light", "emit": [7, 6.6, 6] },
+    "window": { "type": "light", "emit": [1.4, 1.5, 1.7] }
+  },
+  "objects": [
+    { "type": "quad", "corner": [-8, 0, -3], "u": [16, 0, 0], "v": [0, 0, 12], "material": "floor" },
+    { "type": "quad", "corner": [-8, 0, -3], "u": [16, 0, 0], "v": [0, 6, 0], "material": "wall" },
+
+    // Table: a top and four legs.
+    { "type": "box", "min": [-1.2, 0.72, -0.6], "max": [1.2, 0.78, 0.6], "material": "wood" },
+    { "type": "box", "min": [-1.1, 0, -0.5], "max": [-1.02, 0.72, -0.42], "material": "legs" },
+    { "type": "box", "min": [1.02, 0, -0.5], "max": [1.1, 0.72, -0.42], "material": "legs" },
+    { "type": "box", "min": [-1.1, 0, 0.42], "max": [-1.02, 0.72, 0.5], "material": "legs" },
+    { "type": "box", "min": [1.02, 0, 0.42], "max": [1.1, 0.72, 0.5], "material": "legs" },
+
+    {
+      "type": "mesh",
+      "file": "../../assets/models/teapot.obj",
+      "transform": { "scale": 0.15, "rotate_y": -30, "translate": [-0.04, 0.78, 0] },
+      "material": "chrome"
+    },
+
+    // Soft overhead light, and a dim cool panel behind the camera for the chrome to reflect.
+    { "type": "quad", "corner": [-0.8, 2.4, -0.6], "u": [1.6, 0, 0], "v": [0, 0, 1.2], "material": "light" },
+    { "type": "quad", "corner": [-2, 0.6, 5], "u": [5, 0, 0], "v": [0, 2.4, 0], "material": "window" }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  // Five looks, one mesh (4 of 5). Rose gold: low-fuzz metal reflecting the studio.
+  // All five files share this camera, light and pose; only the "bunny" material changes.
+  "camera": { "look_from": [0.4, 1.25, 5.4], "look_at": [0.04, 0.72, 0.2], "fov": 22 },
+  "settings": { "width": 1200, "aspect_ratio": 1, "samples": 1000, "depth": 30, "background": [0.03, 0.03, 0.035] },
+  "materials": {
+    "studio": { "type": "lambertian", "albedo": [0.5, 0.5, 0.53] },
+    "key":    { "type": "light", "emit": [9, 8.6, 8] },
+    "fill":   { "type": "light", "emit": [1.6, 1.8, 2.2] },
+    "bunny":  { "type": "metal", "albedo": [0.93, 0.64, 0.56], "fuzz": 0.08 }
+  },
+  "objects": [
+    { "type": "quad", "corner": [-6, 0, -2], "u": [12, 0, 0], "v": [0, 0, 10], "material": "studio" },
+    { "type": "quad", "corner": [-6, 0, -2], "u": [12, 0, 0], "v": [0, 8, 0], "material": "studio" },
+    { "type": "quad", "corner": [-2.6, 3.6, 0.6], "u": [1.6, 0, 0], "v": [0, 0, 1.6], "material": "key" },
+    { "type": "quad", "corner": [3.2, 0.6, 1.5], "u": [0, 2, 0], "v": [0, 0, 2], "material": "fill" },
+    {
+      "type": "mesh",
+      "file": "../../../assets/models/stanford-bunny.obj",
+      "transform": { "scale": 10, "rotate_y": 20, "translate": [0.17, -0.33, 0] },
+      "material": "bunny"
+    }
+  ]
+}

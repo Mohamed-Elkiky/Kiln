@@ -18,6 +18,11 @@ struct HitRecord {
     double t = 0.0;
     bool front_face = false;  // true if the ray hit the outside of the surface
 
+    // Where on a triangle the hit landed: weights of its three corners, summing to 1. Only
+    // triangles set it (on_triangle); the wireframe texture uses it to find the edges.
+    Vec3 barycentric{0.0, 0.0, 0.0};
+    bool on_triangle = false;
+
     // outward_normal must be unit length.
     void set_face_normal(const Ray& r, const Vec3& outward_normal) {
         front_face = dot(r.direction(), outward_normal) < 0.0;
