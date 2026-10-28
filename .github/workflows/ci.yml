@@ -46,7 +46,7 @@ jobs:
             os: windows-2022
             flags: -DKILN_PREVIEW=ON
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       # With OIDN, test_denoise really denoises instead of only checking the fallback.
       - name: Download Intel Open Image Denoise
@@ -84,7 +84,7 @@ jobs:
     name: ThreadSanitizer
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       # Ubuntu 24.04 runners randomise memory more than TSan supports, which crashes it on start.
       - name: Allow TSan's memory layout
         run: sudo sysctl vm.mmap_rnd_bits=28
