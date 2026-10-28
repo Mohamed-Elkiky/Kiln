@@ -64,7 +64,7 @@ Every scene is in [`scenes/`](scenes) and [`scenes/showcase/`](scenes/showcase).
 
 **The Stanford bunny renders ~37,000x faster than brute force, and the 250k-triangle dragon ~294,000x faster.**
 
-`kiln_bench` on a Ryzen 9 7900X (12 cores, 24 threads), MSVC 19.44 Release, median of 3 runs. Full report in [docs/benchmarks.md](docs/benchmarks.md).
+`kiln_bench` on a Ryzen 9 7900X (12 cores, 24 threads), MSVC 19.44 Release, median of 3 runs. Meshes render at 400x400 with 16 samples per pixel, the Cornell box at 400x400 with 64. Full report in [docs/benchmarks.md](docs/benchmarks.md).
 
 | Scene | Size | Brute force, 1 thread | BVH, 1 thread | BVH, 24 threads | Total speedup |
 |---|---|---|---|---|---|
