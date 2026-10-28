@@ -61,8 +61,8 @@ void print_camera(const CameraConfig& c) {
     std::printf(
         "\"camera\": { \"look_from\": [%.3f, %.3f, %.3f], \"look_at\": [%.3f, %.3f, %.3f], "
         "\"up\": [%.3f, %.3f, %.3f], \"fov\": %.2f },\n",
-        c.look_from.x, c.look_from.y, c.look_from.z, c.look_at.x, c.look_at.y, c.look_at.z,
-        c.vup.x, c.vup.y, c.vup.z, c.vfov);
+        c.look_from.x, c.look_from.y, c.look_from.z, c.look_at.x, c.look_at.y, c.look_at.z, c.vup.x,
+        c.vup.y, c.vup.z, c.vfov);
     std::fflush(stdout);
 }
 

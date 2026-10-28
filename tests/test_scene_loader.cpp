@@ -129,7 +129,7 @@ TEST_CASE("every error names the file and the exact field") {
          "settings.samples: expected a whole number >= 1"},
         {"typo in a section name", "{ " + kCamera + R"(, "setings": {}, "objects": [] })",
          "unknown field 'setings'"},
-                    {"unknown texture",
+        {"unknown texture",
          "{ " + kCamera +
              R"(, "materials": { "m": { "type": "lambertian", "albedo": { "texture": "marble" } } }, "objects": [] })",
          "materials.m.albedo.texture: unknown texture 'marble'"},
@@ -141,7 +141,7 @@ TEST_CASE("every error names the file and the exact field") {
          "{ " + kCamera +
              R"(, "materials": { "m": { "type": "lambertian", "albedo": { "texture": "wood", "colors": [[1, 1, 1], [0, 0, 0]], "axis": "w" } } }, "objects": [] })",
          "materials.m.albedo.axis: expected \"x\", \"y\", \"z\""},
-                {"glass absorption out of range",
+        {"glass absorption out of range",
          "{ " + kCamera +
              R"(, "materials": { "m": { "type": "dielectric", "ior": 1.5, "absorption": [0, 0.5, 1] } }, "objects": [] })",
          "materials.m.absorption: each channel must be above 0 and at most 1"},

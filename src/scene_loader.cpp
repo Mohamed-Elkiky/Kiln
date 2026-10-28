@@ -207,7 +207,7 @@ std::shared_ptr<Texture> read_texture(const json& j, const std::string& where) {
         return std::make_shared<GradientTexture>(std::move(c), axis, from, to);
     }
     fail(field(where, "texture"),
-        "unknown texture '" + type +
+         "unknown texture '" + type +
              "' (expected checker, noise, wood, normal, gradient or wireframe)");
 }
 
@@ -292,7 +292,7 @@ Materials read_materials(const json& j, const std::string& where) {
             materials[item.key()] = a.texture ? std::make_shared<Metal>(a.texture, fuzz)
                                               : std::make_shared<Metal>(a.color, fuzz);
         } else if (type == "dielectric") {
-                        check_keys(m, w, {"type", "ior", "absorption", "density"});
+            check_keys(m, w, {"type", "ior", "absorption", "density"});
             const double ior = to_positive(require(m, "ior", w), field(w, "ior"));
             if (m.contains("absorption")) {
                 const Color tint = to_vec3(m.at("absorption"), field(w, "absorption"));

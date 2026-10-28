@@ -156,8 +156,8 @@ private:
     }
 
     double refraction_index_;  // glass 1.5, water 1.33, diamond 2.4
-    Vec3 sigma_;              // absorption coefficients
-    bool absorbs_;            // whether the material absorbs light
+    Vec3 sigma_;               // absorption coefficients
+    bool absorbs_;             // whether the material absorbs light
 };
 
 // Light source: glows with a colour, never scatters. Values above 1 = brighter.
